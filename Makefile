@@ -4,7 +4,7 @@ CFLAGS+=-fPIC
 LDFLAGS=
 
 .PHONY: all
-all: doc libmap.a libmap.so test_map libtimer.a libtimer.so test_timer
+all: README.md libmap.a libmap.so test_map libtimer.a libtimer.so test_timer
 
 #### Examples
 .PHONY: test_map
@@ -67,7 +67,4 @@ README.md: README_map.md README_timer.md
 README_%.md: %.h ./h2md
 	chmod +x ./h2md
 	./h2md "$<" >| "$@"
-
-%.html: %.md
-	pandoc -f markdown -- "$^" > "$@" || :
 
