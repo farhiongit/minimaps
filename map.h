@@ -213,6 +213,7 @@ extern map_operator MAP_REMOVE_ALL;
 // N.B.: A destination map identical to the source map would **deadly lock** the calling thread.
 extern map_operator MAP_MOVE_TO;
 
-void map_display (struct map *m, FILE * stream);
+// For debugging purpose:
+void map_display (map * map, FILE * stream);
 
 #endif
