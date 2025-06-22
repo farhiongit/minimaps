@@ -30,9 +30,9 @@ static struct                   // Ordered list of struct timer_elem stored in a
 } Timers = { 0 };
 
 static const void *
-Timers_get_key (const void *pa)
+Timers_get_key (void *pa)
 {
-  const struct timer_elem *a = pa;
+  struct timer_elem *a = pa;
   return &a->timeout;
 }
 
@@ -107,7 +107,8 @@ static once_flag TIMERS_INIT = ONCE_FLAG_INIT;
 static void
 timers_init (void)              // Called once.
 {
-  Timers.map = map_create (Timers_get_key, Timers_cmp_key, 0, MAP_NONE);        // Timers.map won't be destroyed.
+  if (!(Timers.map = map_create (Timers_get_key, Timers_cmp_key, 0, 0)))        // Timers.map won't be destroyed.
+    return;
   mtx_init (&Timers.mutex, mtx_plain);  // Timers.mutex won't be destroyed.
   cnd_init (&Timers.condition); // Timers.condition won't be destroyed.
   thrd_create (&Timers.thread, timers_loop, 0); // The thread won't be destroyed and will never end. It will be stopped when the thread of the caller to timer_set will end.
@@ -143,9 +144,6 @@ timer_remover (void *data, void *res, int *remove)
 void
 timer_unset (void *timer)
 {
-  if (map_traverse (Timers.map, timer_remover, 0, timer))
-  {
-    call_once (&TIMERS_INIT, timers_init);
+  if (Timers.map && map_traverse (Timers.map, timer_remover, 0, timer))
     cnd_broadcast (&Timers.condition);
-  }
 }

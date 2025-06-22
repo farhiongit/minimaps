@@ -1,7 +1,9 @@
-CFLAGS=
 CFLAGS+=-O
 CFLAGS+=-fPIC
 LDFLAGS=
+#CHECK=valgrind --leak-check=full --show-leak-kinds=all
+#CHECK=ddd
+#CHECK=gdb
 
 .PHONY: all
 all: README.md libmap.a libmap.so test_map libtimer.a libtimer.so test_timer
@@ -10,7 +12,7 @@ all: README.md libmap.a libmap.so test_map libtimer.a libtimer.so test_timer
 .PHONY: test_map
 test_map: libmap.so examples/test_map
 	@echo "********* $@ ************"
-	LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:. ./examples/test_map
+	LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:. $(CHECK) ./examples/test_map
 	@echo "*********************"
 
 examples/test_map: CFLAGS+=-std=c23
@@ -22,7 +24,7 @@ examples/test_map: examples/test_map.c
 .PHONY: test_timer
 test_timer: libmap.so libtimer.so examples/test_timer
 	@echo "********* $@ ************"
-	LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:. time ./examples/test_timer
+	LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:. time $(CHECK) ./examples/test_timer
 	@echo "*********************"
 
 examples/test_timer: CFLAGS+=-std=c23

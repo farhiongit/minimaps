@@ -10,13 +10,15 @@
 #include <string.h>
 #include "map.h"
 #include "trace.h"
-#define map_create(...)            TRACE_EXPRESSION(map_create (__VA_ARGS__))
-#define map_destroy(...)           TRACE_EXPRESSION(map_destroy (__VA_ARGS__))
-#define map_insert_data(...)       TRACE_EXPRESSION(map_insert_data (__VA_ARGS__))
-#define map_traverse(...)          TRACE_EXPRESSION(map_traverse (__VA_ARGS__))
-#define map_find_key(...)          TRACE_EXPRESSION(map_find_key (__VA_ARGS__))
-#define map_traverse_backward(...) TRACE_EXPRESSION(map_traverse_backward (__VA_ARGS__))
-#define map_size(...)              TRACE_EXPRESSION(map_size (__VA_ARGS__))
+#if 1
+#  define map_create(...)            TRACE_EXPRESSION(map_create (__VA_ARGS__))
+#  define map_destroy(...)           TRACE_EXPRESSION(map_destroy (__VA_ARGS__))
+#  define map_insert_data(...)       TRACE_EXPRESSION(map_insert_data (__VA_ARGS__))
+#  define map_traverse(...)          TRACE_EXPRESSION(map_traverse (__VA_ARGS__))
+#  define map_find_key(...)          TRACE_EXPRESSION(map_find_key (__VA_ARGS__))
+#  define map_traverse_backward(...) TRACE_EXPRESSION(map_traverse_backward (__VA_ARGS__))
+#  define map_size(...)              TRACE_EXPRESSION(map_size (__VA_ARGS__))
+#endif
 
 static int
 cmpstringp (const void *p1, const void *p2, void *arg)
@@ -39,32 +41,29 @@ print_data (void *data, void *res, int *remove)
 }
 
 static int
-select_c (const void *data, void *res)
+select_start_with_c (const void *data, void *res)
 {
-  (void) res;
-  return (*(const char *) data == 'c');
+  char *c = res;
+  return (*(const char *) data == *c);
 }
 
 static void
 test1 (void)
 {
-  for (int i = 1; i <= 4; i++)
+  for (int i = 1; i <= 3; i++)
   {
     map *li;
     puts ("============================================================");
     switch (i)
     {
       case 1:
-        li = map_create (0, cmpstringp, 0, MAP_UNIQUENESS);       // Set
+        li = map_create (0, cmpstringp, 0, 1);  // Sorted set
         break;
       case 2:
-        li = map_create (0, cmpstringp, 0, MAP_STABLE);   // Ordered list
+        li = map_create (0, cmpstringp, 0, 0);  // Sorted list
         break;
       case 3:
-        li = map_create (0, 0, 0, MAP_STABLE);  // Chain (FIFO or LIFO)
-        break;
-      case 4:
-        li = map_create (0, 0, 0, MAP_NONE);    // Unordered list
+        li = map_create (0, 0, 0, 0);   // Unsorted list
         break;
       default:
     }
@@ -78,16 +77,18 @@ test1 (void)
     map_insert_data (li, "cc");
     map_insert_data (li, "d");
     fprintf (stdout, "%lu elements.\n", map_size (li));
+    map_display (li, stderr);
 
     map_traverse (li, print_data, 0, 0);
     fprintf (stdout, "\n");
     map_traverse_backward (li, print_data, 0, 0);
     fprintf (stdout, "\n");
-    map_traverse (li, print_data, select_c, 0);
+    char c = 'c';
+    map_traverse (li, print_data, select_start_with_c, &c);
     fprintf (stdout, "\n");
 
     char *data = 0;
-    if (map_traverse (li, MAP_REMOVE_ONE, 0, &data) && data)        // Remove the first found element from the map.
+    if (map_traverse (li, MAP_REMOVE_ONE, 0, &data) && data)    // Remove the first found element from the map.
     {
       fprintf (stdout, "%s <-- ", data);
       map_traverse (li, print_data, 0, 0);
@@ -100,7 +101,7 @@ test1 (void)
     map_insert_data (li, "r");
     map_traverse (li, print_data, 0, 0);
     fprintf (stdout, "\n");
-    map *lj = map_create (0, 0, 0, MAP_NONE);
+    map *lj = map_create (0, 0, 0, 0);
     map_find_key (li, "r", MAP_MOVE_TO, lj);
     map_traverse (li, print_data, 0, 0);
     fprintf (stdout, "\n");
@@ -148,34 +149,56 @@ static int
 cmpip (const void *p1, const void *p2, void *arg)
 {
   (void) arg;
-  return *(const int*)p1 < *(const int*)p2 ? -1 : *(const int*)p1 > *(const int*)p2 ? 1 : 0;
+  return *(const int *) p1 < *(const int *) p2 ? -1 : *(const int *) p1 > *(const int *) p2 ? 1 : 0;
 }
 
-static int nop (int i) { return i ; }
-static int dbl (int i) { return 2 * i ; }
-static int dec (int i) { return i - 1 ; }
+static int
+nop (int i)
+{
+  return i;
+}
+
+static int
+dbl (int i)
+{
+  return 2 * i;
+}
+
+static int
+dec (int i)
+{
+  return i - 1;
+}
 
 static int
 apply (void *data, void *res, int *remove)
 {
   (void) remove;
   int (*f) (int) = res;
-  *(int *)data = f (*(int *)data);
+  *(int *) data = f (*(int *) data);
   return 1;                     // Tells: continue traversing.
 }
 
-struct rai_args { int (*f) (int) ; map *map ; };
+struct rai_args
+{
+  int (*f) (int);
+  map *map;
+};
 
 static int
 remove_apply_insert (void *data, void *res, int *remove)
 {
-  int (*f) (int) = ((struct rai_args *)res)->f;
-  map *m = ((struct rai_args *)res)->map;
+  int (*f) (int) = ((struct rai_args *) res)->f;
+  map *m = ((struct rai_args *) res)->map;
   int *pi = malloc (sizeof (*pi));
-  *pi = f (*(int *)data);
-  map_insert_data (m, pi);
-  free (data);
-  *remove = 1;                  // Tells: remove the data from the map.
+  *pi = f (*(int *) data);
+  if (map_insert_data (m, pi))
+  {
+    free (data);
+    *remove = 1;                // Tells: remove the data from the map.
+  }
+  else
+    free (pi);
   return 1;                     // Tells: continue traversing.
 }
 
@@ -192,11 +215,11 @@ static void
 test2 (void)
 {
   puts ("============================================================");
-  map* li = map_create (0, cmpip, 0, MAP_STABLE);   // Ordered list
-  for (size_t i = 0 ; i < 10 ; i++)
+  map *li = map_create (0, cmpip, 0, 0);        // Ordered list
+  for (size_t i = 0; i < 10; i++)
   {
     int *pi = malloc (sizeof (*pi));
-    *pi = rand () % 40 + 10;
+    *pi = rand () % 39 + 11;
     map_insert_data (li, pi);
   }
   map_traverse (li, print_pi, 0, 0);
@@ -208,16 +231,19 @@ test2 (void)
   map_traverse (li, print_pi, 0, 0);
   fprintf (stdout, "\n");
   struct rai_args args;
-  args = (struct rai_args ){ nop, li };
+  args = (struct rai_args)
+  { nop, li };
   map_traverse_backward (li, remove_apply_insert, 0, &args);
   map_traverse (li, print_pi, 0, 0);
   fprintf (stdout, "\n");
-  args = (struct rai_args ){ dec, li };
+  args = (struct rai_args)
+  { dec, li };
   map_traverse (li, remove_apply_insert, 0, &args);
   map_traverse (li, print_pi, 0, 0);
   fprintf (stdout, "\n");
-  args = (struct rai_args ){ dbl, li };
-  map_traverse (li, remove_apply_insert, 0, &args);  // Integers are removed, doubled and pushed back forward into the ordered list and traversed repeatedly, till they overflow to lower negative numbers (and are therefore pushed backward).
+  args = (struct rai_args)
+  { dbl, li };
+  map_traverse (li, remove_apply_insert, 0, &args);     // Integers are removed, doubled and pushed back forward into the ordered list and traversed repeatedly, till they overflow to lower negative numbers (and are therefore pushed backward).
   map_traverse (li, print_pi, 0, 0);
   fprintf (stdout, "\n");
   map_traverse (li, MAP_REMOVE_ALL, 0, free);
@@ -226,19 +252,25 @@ test2 (void)
   map_destroy (li);
 }
 
-enum class { NOUN, VERB, ADJECTIVE, ADVERB, PRONOUN, DETERMINER, PREPOSITION, CONJUNCTION, INTERJECTION };
-enum gender { MASCULINE, FEMININE, NEUTER, NONE };
-struct entry  // The type of the data stored in the map
+enum class
+{ NOUN, VERB, ADJECTIVE, ADVERB, PRONOUN, DETERMINER, PREPOSITION, CONJUNCTION, INTERJECTION };
+enum gender
+{ MASCULINE, FEMININE, NEUTER, NONE };
+struct entry                    // The type of the data stored in the map
 {
-  struct word { char *spelling ; enum class class ; } word;
-  enum gender gender ;
-  char* definition;
+  struct word
+  {
+    char *spelling;
+    enum class class;
+  } word;
+  enum gender gender;
+  char *definition;
 };
 
-static const void*
-get_word (const void* data)       // 'data' is supposed to be a pointer to 'struct entry'
+static const void *
+get_word (void *data)           // 'data' is supposed to be a pointer to 'struct entry'
 {
-  return &((const struct entry *)data)->word;  // 'word' is declared as the subset of the 'data' that defines the key of the map.
+  return &((const struct entry *) data)->word;  // 'word' is declared as the subset of the 'data' that defines the key of the map.
 }
 
 static int
@@ -265,17 +297,96 @@ static void
 test3 (void)
 {
   puts ("============================================================");
-  map* dictionary = map_create (get_word, cmp_word, 0, MAP_STABLE);   // Dictionary. A word can have several definitions and therefore appear several times in the map.
-  map_insert_data (dictionary, &(struct entry){{"Orange", NOUN}, FEMININE, "Fruit"});
-  map_insert_data (dictionary, &(struct entry){{"Abricot", NOUN}, MASCULINE, "Fruit"});
-  map_insert_data (dictionary, &(struct entry){{"Orange", NOUN}, MASCULINE, "Colour"});
-  map_insert_data (dictionary, &(struct entry){{"Orange", ADJECTIVE}, NONE, "Colour"});
+  map *dictionary = map_create (get_word, cmp_word, 0, 0);      // Dictionary. A word can have several definitions and therefore appear several times in the map.
+  map_insert_data (dictionary, &(struct entry)
+                   {
+                   {"Orange", NOUN}, FEMININE, "Fruit"
+                   });
+  map_insert_data (dictionary, &(struct entry)
+                   {
+                   {"Abricot", NOUN}, MASCULINE, "Fruit"
+                   });
+  map_insert_data (dictionary, &(struct entry)
+                   {
+                   {"Orange", NOUN}, MASCULINE, "Colour"
+                   });
+  map_insert_data (dictionary, &(struct entry)
+                   {
+                   {"Orange", ADJECTIVE}, NONE, "Colour"
+                   });
   fprintf (stdout, "%lu element(s).\n", map_size (dictionary));
   fprintf (stdout, "%lu element(s).\n", map_traverse (dictionary, 0, 0, 0));
   fprintf (stdout, "%lu element(s) found.\n", map_traverse (dictionary, 0, sel_noun_masculine, 0));
-  fprintf (stdout, "%lu element(s) found.\n", map_find_key (dictionary, &(struct word){"Orange", NOUN}, 0, 0));
-  fprintf (stdout, "%lu element(s) found.\n", map_find_key (dictionary, &(struct word){"Orange", ADJECTIVE}, 0, 0));
-  fprintf (stdout, "%lu element(s) found.\n", map_find_key (dictionary, &(struct word){"Orange", VERB}, 0, 0));
+  fprintf (stdout, "%lu element(s) found.\n", map_find_key (dictionary, &(struct word)
+                                                            { "Orange", NOUN }, 0, 0));
+  fprintf (stdout, "%lu element(s) found.\n", map_find_key (dictionary, &(struct word)
+                                                            { "Orange", ADJECTIVE }, 0, 0));
+  fprintf (stdout, "%lu element(s) found.\n", map_find_key (dictionary, &(struct word)
+                                                            { "Orange", VERB }, 0, 0));
+  map_traverse (dictionary, MAP_REMOVE_ALL, 0, 0);
+  map_destroy (dictionary);
+}
+
+struct crossword
+{
+  char *word;
+  size_t length;
+};
+
+static const void *
+get_crossword_length (void *data)
+{
+  struct crossword *cw = data;
+  if (!cw->length)
+    cw->length = strlen (cw->word);     // The key is calculated from the data and stored in the element.
+  return &cw->length;
+}
+
+static int
+cmp_crossword (const void *p1, const void *p2, void *arg)
+{
+  (void) arg;
+  const size_t l1 = *(const size_t *) p1;
+  const size_t l2 = *(const size_t *) p2;
+  return l1 > l2 ? 1 : l1 < l2 ? -1 : 0;
+}
+
+static int
+match (void *data, void *res, int *remove)
+{
+  (void) remove;
+  char *word = ((struct crossword *) data)->word;
+  char *pattern = res;
+  int match = (strlen (word) == strlen (pattern));
+  for (size_t i = 0; match && i < strlen (word); i++)
+    if (pattern[i] != '*' && pattern[i] != word[i])
+      match = 0;
+  if (match)
+    fprintf (stdout, "%s\n", word);
+  return 1;
+}
+
+static void
+test4 (void)
+{
+  char *pattern = "*e***";
+  const size_t l = strlen (pattern);
+  puts ("============================================================");
+  map *dictionary = map_create (get_crossword_length, cmp_crossword, 0, 0);
+  map_insert_data (dictionary, &(struct crossword)
+                   {.word = "Lemon" });
+  map_insert_data (dictionary, &(struct crossword)
+                   {.word = "Apple" });
+  map_insert_data (dictionary, &(struct crossword)
+                   {.word = "Orange" });
+  map_insert_data (dictionary, &(struct crossword)
+                   {.word = "Apricot" });
+  map_insert_data (dictionary, &(struct crossword)
+                   {.word = "Peach" });
+  map_insert_data (dictionary, &(struct crossword)
+                   {.word = "Grapes" });
+  fprintf (stdout, "%lu element(s) checked.\n", map_find_key (dictionary, &l, match, pattern));
+  fprintf (stdout, "%lu element(s).\n", map_size (dictionary));
   map_traverse (dictionary, MAP_REMOVE_ALL, 0, 0);
   map_destroy (dictionary);
 }
@@ -287,4 +398,5 @@ main (void)
   test1 ();
   test2 ();
   test3 ();
+  test4 ();
 }

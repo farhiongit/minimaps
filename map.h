@@ -1,5 +1,5 @@
 /********************** # Map me ! *********************/
-// **A unprecedented MT-safe implementation of a map library that can manage maps, sets, ordered and unordered lists that can do it all with a minimalist interface.**
+// **A unprecedented MT-safe implementation of a map library that can manage maps, sets, sorted and unsorted lists that can do it all with a minimalist interface.**
 //
 // (c) L. Farhi, 2024.
 // Language: C (C11 or higher).
@@ -18,6 +18,7 @@
 // ## Type definitions
 #ifndef  __MAP_H__
 #  define __MAP_H__
+#  include <stdio.h>
 
 // ### Map
 // A map as an opaque Abstract Data Type (internally modelled as a sorted binary tree):
@@ -30,7 +31,7 @@ typedef struct map map;
 // ### Key
 // The key of the map is extracted from the data stored in it (generally but not necessarily a subset of it). A user-defined function of type `map_key_extractor` (passed to `map_create`) can be used to extract this subset.
 // `map_key_extractor` is the type of the user-defined function that should return a pointer to the the part of `data` that contains the key of the map.
-typedef const void *(*map_key_extractor) (const void *data);
+typedef const void *(*map_key_extractor) (void *data);
 // > Functions of type `map_key_extractor` should not allocate memory dynamically.
 /* Example:
 
@@ -95,7 +96,7 @@ typedef int (*map_operator) (void *data, void *context, int *remove);
 // ## Interface
 
 // ### Create a map
-map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *arg, int property);
+map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *arg, int unicity);
 // Returns `0` if the map could not be allocated (and `errno` set to `ENOMEM`).
 // Otherwise, returns a pointer to the created map.
 // If not `0`, the comparison function `cmp_key` must return an integer less than, equal to, or greater than zero
@@ -104,27 +105,22 @@ map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *ar
 // `cmp_key` must be set if `get_key` is set.
 // The pointer `arg` (which can be `0`) is passed to the comparison function `cmp_key` (as third argument).
 
-// `property` is one of the values below and dictates the behaviour in case two data with equal key are inserted.
-// `property` is `MAP_NONE` (or `0`), `MAP_UNIQUENESS` or `MAP_STABLE`.
-// Elements are unique in the map if and only if `property` is equal to `MAP_UNIQUENESS`.
-// Equal elements are ordered in the order they were inserted if `property` is equal to `MAP_STABLE`.
-extern int MAP_UNIQUENESS;      // The second data is not inserted (uniqueness).
-extern int MAP_STABLE;          // The second data is inserted **after** the first data with the identical key (stability).
-extern int MAP_NONE;            // The second data is inserted either (randomly) before or after the first data with the identical key (keeps the binary tree more balanced).
+// If `unicity` is not `0`, elements are unique in the map (equal elements are not inserted and `map_insert_data` will return `0`).
+// Otherwise, equal elements are sorted in the order they were inserted.
 
 /* 7 possible uses, depending on `property`, `cmp_key` and `get_key`:
 
-| Use            | `property`           | `cmp_key` | `get_key` | Comment                                                                                                                       |
-| -              | -                    | -         | -         | -                                                                                                                             |
-| Ordered map    | `MAP_UNIQUENESS`     | Non-zero  | Non-zero  | Each key is unique in the map.                                                                                                |
-| Dictionary     | not `MAP_UNIQUENESS` | Non-zero  | Non-zero  | Keys can have multiple entries in the map.                                                                                    |
-| Set            | `MAP_UNIQUENESS`     | Non-zero  | `0`       | Elements are unique. `cmp_key` applies to inserted `data` (the `data` is the key).                                            |
-| Ordered list   | `MAP_STABLE`         | Non-zero  | `0`       | Equal elements are ordered in the order they were inserted. `cmp_key` applies to inserted `data` (the `data` is the key).     |
-| Unordered list | not `MAP_UNIQUENESS` | `0`       | `0`       |                                                                                                                               |
-| FIFO           | `MAP_STABLE`         | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse (m, MAP_REMOVE_ONE, 0, &data)` to remove an element.          |
-| LIFO           | `MAP_STABLE`         | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse_backward (m, MAP_REMOVE_ONE, 0, &data)` to remove an element. |
+| Use            | `unicity` | `cmp_key` | `get_key` | Comment                                                                                                                       |
+| -              | -         | -         | -         | -                                                                                                                             |
+| Sorted map     | `1`       | Non-zero  | Non-zero  | Each key is unique in the map.                                                                                                |
+| Dictionary     | `0`       | Non-zero  | Non-zero  | Keys can have multiple entries in the map.                                                                                    |
+| Sorted set     | `1`       | Non-zero  | `0`       | Elements are unique. `cmp_key` applies to inserted `data` (the `data` is the key).                                            |
+| Sorted list    | `0`       | Non-zero  | `0`       | Equal elements are sorted in the order they were inserted. `cmp_key` applies to inserted `data` (the `data` is the key).      |
+| Unsorted list  | `0`       | `0`       | `0`       |                                                                                                                               |
+| FIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse (m, MAP_REMOVE_ONE, 0, &data)` to remove an element.          |
+| LIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse_backward (m, MAP_REMOVE_ONE, 0, &data)` to remove an element. |
 
-> (*) If `cmp_key` or `get_key` is `0` and property is `MAP_STABLE`, complexity is reduced by a factor log n.
+> (*) If `cmp_key` or `get_key` is `0`, complexity is reduced by a factor log n.
 
 */
 
@@ -161,8 +157,8 @@ size_t map_find_key (struct map *map, const void *key, map_operator op, void *co
 // > Therefore, elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while finding elements.
 
 // #### Traverse a map
-size_t map_traverse (map *map, map_operator op, map_selector sel, void *context);
-size_t map_traverse_backward (map *map, map_operator op, map_selector sel, void *context);
+size_t map_traverse (map * map, map_operator op, map_selector sel, void *context);
+size_t map_traverse_backward (map * map, map_operator op, map_selector sel, void *context);
 // Traverse the elements of the map.
 // If the operator `op` is not null, it is applied on the data stored in the map, from the first element to the last (resp. the other way round), as long as the operator `op` returns non-zero.
 // If `op` is null, all the elements are traversed.
@@ -216,5 +212,7 @@ extern map_operator MAP_REMOVE_ALL;
 // This map operator moves each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward` to another **different** map passed in the argument `context` of `map_find_key`, `map_traverse` or `map_traverse_backward`.
 // N.B.: A destination map identical to the source map would **deadly lock** the calling thread.
 extern map_operator MAP_MOVE_TO;
+
+void map_display (struct map *m, FILE * stream);
 
 #endif

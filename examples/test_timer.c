@@ -9,11 +9,12 @@ static double TWO = 2;
 static void
 hello (void *arg)
 {
-  printf ("Hello (after %f seconds).\n", *(double *)arg);
+  printf ("Hello (after %f seconds).\n", *(double *) arg);
   exit (EXIT_SUCCESS);
 }
 
-int main (void)
+int
+main (void)
 {
   void *timer1s = timer_set (delay_to_abs_timespec (ONE), hello, &ONE);
   void *timer2s = timer_set (delay_to_abs_timespec (TWO), hello, &TWO);

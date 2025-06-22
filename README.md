@@ -1,5 +1,5 @@
 # Map me !
-**A unprecedented MT-safe implementation of a map library that can manage maps, sets, ordered and unordered lists that can do it all with a minimalist interface.**
+**A unprecedented MT-safe implementation of a map library that can manage maps, sets, sorted and unsorted lists that can do it all with a minimalist interface.**
 
 (c) L. Farhi, 2024.
 
@@ -23,6 +23,11 @@ The interface has only 7 functions to do everything:
 | - | - |
 | \_\_MAP\_H\_\_ |
 
+
+| Include |
+| - |
+| <stdio.h> |
+
 ### Map
 A map as an opaque Abstract Data Type (internally modelled as a sorted binary tree):
 
@@ -44,7 +49,7 @@ The key of the map is extracted from the data stored in it (generally but not ne
 
 | Type definition |
 | - |
-| const void \*(\*map\_key\_extractor) (const void \*data) |
+| const void \*(\*map\_key\_extractor) (void \*data) |
 
 > Functions of type `map_key_extractor` should not allocate memory dynamically.
 
@@ -150,7 +155,7 @@ In other words, as soon as the operator returns `0`, it stops `map_traverse`, `m
 ## Interface
 ### Create a map
 ```c
-map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *arg, int property);
+map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *arg, int unicity);
 ```
 Returns `0` if the map could not be allocated (and `errno` set to `ENOMEM`).
 
@@ -171,49 +176,25 @@ if the first argument is considered to be respectively less than, equal to, or g
 The pointer `arg` (which can be `0`) is passed to the comparison function `cmp_key` (as third argument).
 
 
-`property` is one of the values below and dictates the behaviour in case two data with equal key are inserted.
+If `unicity` is not `0`, elements are unique in the map (equal elements are not inserted and `map_insert_data` will return `0`).
 
 
-`property` is `MAP_NONE` (or `0`), `MAP_UNIQUENESS` or `MAP_STABLE`.
+Otherwise, equal elements are sorted in the order they were inserted.
 
 
-Elements are unique in the map if and only if `property` is equal to `MAP_UNIQUENESS`.
-
-
-Equal elements are ordered in the order they were inserted if `property` is equal to `MAP_STABLE`.
-
-
-The second data is not inserted (uniqueness).
-
-
-```c
-extern int MAP_UNIQUENESS;      
-```
-The second data is inserted **after** the first data with the identical key (stability).
-
-
-```c
-extern int MAP_STABLE;          
-```
-The second data is inserted either (randomly) before or after the first data with the identical key (keeps the binary tree more balanced).
-
-
-```c
-extern int MAP_NONE;            
-```
 7 possible uses, depending on `property`, `cmp_key` and `get_key`:
 
-| Use            | `property`           | `cmp_key` | `get_key` | Comment                                                                                                                       |
-| -              | -                    | -         | -         | -                                                                                                                             |
-| Ordered map    | `MAP_UNIQUENESS`     | Non-zero  | Non-zero  | Each key is unique in the map.                                                                                                |
-| Dictionary     | not `MAP_UNIQUENESS` | Non-zero  | Non-zero  | Keys can have multiple entries in the map.                                                                                    |
-| Set            | `MAP_UNIQUENESS`     | Non-zero  | `0`       | Elements are unique. `cmp_key` applies to inserted `data` (the `data` is the key).                                            |
-| Ordered list   | `MAP_STABLE`         | Non-zero  | `0`       | Equal elements are ordered in the order they were inserted. `cmp_key` applies to inserted `data` (the `data` is the key).     |
-| Unordered list | not `MAP_UNIQUENESS` | `0`       | `0`       |                                                                                                                               |
-| FIFO           | `MAP_STABLE`         | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse (m, MAP_REMOVE_ONE, 0, &data)` to remove an element.          |
-| LIFO           | `MAP_STABLE`         | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse_backward (m, MAP_REMOVE_ONE, 0, &data)` to remove an element. |
+| Use            | `unicity` | `cmp_key` | `get_key` | Comment                                                                                                                       |
+| -              | -         | -         | -         | -                                                                                                                             |
+| Sorted map     | `1`       | Non-zero  | Non-zero  | Each key is unique in the map.                                                                                                |
+| Dictionary     | `0`       | Non-zero  | Non-zero  | Keys can have multiple entries in the map.                                                                                    |
+| Sorted set     | `1`       | Non-zero  | `0`       | Elements are unique. `cmp_key` applies to inserted `data` (the `data` is the key).                                            |
+| Sorted list    | `0`       | Non-zero  | `0`       | Equal elements are sorted in the order they were inserted. `cmp_key` applies to inserted `data` (the `data` is the key).      |
+| Unsorted list  | `0`       | `0`       | `0`       |                                                                                                                               |
+| FIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse (m, MAP_REMOVE_ONE, 0, &data)` to remove an element.          |
+| LIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse_backward (m, MAP_REMOVE_ONE, 0, &data)` to remove an element. |
 
-> (*) If `cmp_key` or `get_key` is `0` and property is `MAP_STABLE`, complexity is reduced by a factor log n.
+> (*) If `cmp_key` or `get_key` is `0`, complexity is reduced by a factor log n.
 
 
 
@@ -291,10 +272,10 @@ Complexity : log n (see (*)). MT-safe. Non-recursive.
 
 #### Traverse a map
 ```c
-size_t map_traverse (map *map, map_operator op, map_selector sel, void *context);
+size_t map_traverse (map * map, map_operator op, map_selector sel, void *context);
 ```
 ```c
-size_t map_traverse_backward (map *map, map_operator op, map_selector sel, void *context);
+size_t map_traverse_backward (map * map, map_operator op, map_selector sel, void *context);
 ```
 Traverse the elements of the map.
 
@@ -397,6 +378,9 @@ N.B.: A destination map identical to the source map would **deadly lock** the ca
 
 ```c
 extern map_operator MAP_MOVE_TO;
+```
+```c
+void map_display (struct map *m, FILE * stream);
 ```
 
 -----
