@@ -379,8 +379,9 @@ N.B.: A destination map identical to the source map would **deadly lock** the ca
 ```c
 extern map_operator MAP_MOVE_TO;
 ```
+For debugging purpose:
 ```c
-void map_display (struct map *m, FILE * stream);
+void map_display (map * map, FILE * stream);
 ```
 
 -----
