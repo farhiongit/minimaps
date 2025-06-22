@@ -76,6 +76,7 @@ test1 (void)
     map_insert_data (li, "aa");
     map_insert_data (li, "cc");
     map_insert_data (li, "d");
+    map_insert_data (li, "ba");
     fprintf (stdout, "%lu elements.\n", map_size (li));
     map_display (li, stderr);
 

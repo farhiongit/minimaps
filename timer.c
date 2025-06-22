@@ -70,7 +70,7 @@ Timers_add (struct timespec timeout, void (*callback) (void *arg), void *arg)
 static int
 Timers_remove_earliest (void *data, void *res, int *remove)
 {
-  (void) data;
+  free (data);
   (void) res;
   *remove = 1;
   return 0;
@@ -103,15 +103,26 @@ timers_loop (void *)
   return 0;
 }
 
+static void
+timers_clear (void)
+{
+  map_traverse (Timers.map, MAP_REMOVE_ALL, 0, free);
+  map_destroy (Timers.map);
+  cnd_destroy (&Timers.condition);
+  mtx_destroy (&Timers.mutex);
+}
+
 static once_flag TIMERS_INIT = ONCE_FLAG_INIT;
 static void
 timers_init (void)              // Called once.
 {
   if (!(Timers.map = map_create (Timers_get_key, Timers_cmp_key, 0, 0)))        // Timers.map won't be destroyed.
     return;
-  mtx_init (&Timers.mutex, mtx_plain);  // Timers.mutex won't be destroyed.
-  cnd_init (&Timers.condition); // Timers.condition won't be destroyed.
+  mtx_init (&Timers.mutex, mtx_plain);
+  cnd_init (&Timers.condition);
   thrd_create (&Timers.thread, timers_loop, 0); // The thread won't be destroyed and will never end. It will be stopped when the thread of the caller to timer_set will end.
+  thrd_detach (Timers.thread);
+  atexit (timers_clear);
 }
 
 struct timespec
@@ -138,7 +149,13 @@ timer_set (struct timespec timeout, void (*callback) (void *arg), void *arg)
 static int
 timer_remover (void *data, void *res, int *remove)
 {
-  return (*remove = (data == res) ? 1 : 0) ? 0 : 1;
+  if (data == res)
+  {
+    *remove = 1;
+    free (data);
+    return 0;
+  }
+  return 1;
 }
 
 void
