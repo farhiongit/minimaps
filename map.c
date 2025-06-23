@@ -138,7 +138,7 @@ _map_next (struct map_elem *e)
 }
 
 static void
-_map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char b)
+_map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char b, void (*displayer) (FILE *stream, const void *data))
 {
   if (root)
   {
@@ -147,22 +147,38 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
       fprintf (stream, " ");
     fprintf (stream, "%c ", b);
     fprintf (stream, "%p [%p]%s%s ", root, root->data, root == m->first ? " (f)" : "", root == m->last ? " (l)" : "");
+    if (displayer && root->data)
+    {
+      fprintf (stream, "[");
+      displayer (stream, root->data);
+      fprintf (stream, "] ");
+    }
     for (struct map_elem * eq = root->eq; eq; eq = eq->eq)
       if (eq->lt || eq->gt)
         abort ();
       else
+      {
         fprintf (stream, "=%s %p [%p]%s%s ", (m->cmp_key && !m->cmp_key (root->key_from_data, eq->key_from_data, 0)) ? "" : "?", eq, eq->data,
                  eq == m->first ? " (f)" : "", eq == m->last ? " (l)" : "");
+        if (displayer && eq->data)
+        {
+          fprintf (stream, "[");
+          displayer (stream, eq->data);
+          fprintf (stream, "] ");
+        }
+      }
     fprintf (stream, "\n");
-    _map_scan_and_display (root->lt, stream, indent + 1, '>');
-    _map_scan_and_display (root->gt, stream, indent + 1, '<');
+    _map_scan_and_display (root->lt, stream, indent + 1, '>', displayer);
+    _map_scan_and_display (root->gt, stream, indent + 1, '<', displayer);
   }
 }
 
 void
-map_display (struct map *m, FILE *stream)
+map_display (struct map *m, FILE *stream, void (*displayer) (FILE *stream, const void *data))
 {
-  _map_scan_and_display (m->root, stream, 0, '*');
+  mtx_lock (&m->mutex);
+  _map_scan_and_display (m->root, stream, 0, '*', displayer);
+  mtx_unlock (&m->mutex);
 }
 
 int

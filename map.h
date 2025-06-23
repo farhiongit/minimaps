@@ -214,6 +214,6 @@ extern map_operator MAP_REMOVE_ALL;
 extern map_operator MAP_MOVE_TO;
 
 // For debugging purpose:
-void map_display (map * map, FILE * stream);
+void map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
 
 #endif

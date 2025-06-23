@@ -48,6 +48,12 @@ select_start_with_c (const void *data, void *res)
 }
 
 static void
+display (FILE *stream, const void *data)
+{
+  fprintf (stream, "%s", (const char *) data);
+}
+
+static void
 test1 (void)
 {
   for (int i = 1; i <= 3; i++)
@@ -78,7 +84,7 @@ test1 (void)
     map_insert_data (li, "d");
     map_insert_data (li, "ba");
     fprintf (stdout, "%lu elements.\n", map_size (li));
-    map_display (li, stderr);
+    map_display (li, stderr, display);
 
     map_traverse (li, print_data, 0, 0);
     fprintf (stdout, "\n");

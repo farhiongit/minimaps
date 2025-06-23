@@ -381,7 +381,7 @@ extern map_operator MAP_MOVE_TO;
 ```
 For debugging purpose:
 ```c
-void map_display (map * map, FILE * stream);
+void map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
 ```
 
 -----
