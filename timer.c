@@ -27,6 +27,7 @@ static struct                   // Ordered list of struct timer_elem stored in a
   mtx_t mutex;
   cnd_t condition;
   map *map;
+  int stop;
 } Timers = { 0 };
 
 static const void *
@@ -80,7 +81,7 @@ static int
 timers_loop (void *)
 {
   mtx_lock (&Timers.mutex);
-  while (1)                     // Infinite loop, never ends.
+  while (!Timers.stop)
   {
     struct timer_elem *earliest = 0;
     map_traverse (Timers.map, Timers_get_earliest, 0, &earliest);
@@ -106,6 +107,9 @@ timers_loop (void *)
 static void
 timers_clear (void)
 {
+  Timers.stop = 1;
+  cnd_broadcast (&Timers.condition);
+  thrd_join (Timers.thread, 0);
   map_traverse (Timers.map, MAP_REMOVE_ALL, 0, free);
   map_destroy (Timers.map);
   cnd_destroy (&Timers.condition);
@@ -116,12 +120,11 @@ static once_flag TIMERS_INIT = ONCE_FLAG_INIT;
 static void
 timers_init (void)              // Called once.
 {
-  if (!(Timers.map = map_create (Timers_get_key, Timers_cmp_key, 0, 0)))        // Timers.map won't be destroyed.
+  if (!(Timers.map = map_create (Timers_get_key, Timers_cmp_key, 0, 0)))
     return;
   mtx_init (&Timers.mutex, mtx_plain);
   cnd_init (&Timers.condition);
   thrd_create (&Timers.thread, timers_loop, 0); // The thread won't be destroyed and will never end. It will be stopped when the thread of the caller to timer_set will end.
-  thrd_detach (Timers.thread);
   atexit (timers_clear);
 }
 

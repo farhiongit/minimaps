@@ -10,7 +10,6 @@ static void
 hello (void *arg)
 {
   printf ("Hello (after %f seconds).\n", *(double *) arg);
-  exit (EXIT_SUCCESS);
 }
 
 int
@@ -20,5 +19,5 @@ main (void)
   void *timer2s = timer_set (delay_to_abs_timespec (TWO), hello, &TWO);
   timer_unset (timer1s);
   (void) timer2s;
-  sleep (100);
+  sleep (3);
 }
