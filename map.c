@@ -4,6 +4,8 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
+#undef NDEBUG
+#include <assert.h>
 #include "map.h"
 
 struct map_elem
@@ -137,6 +139,7 @@ _map_next (struct map_elem *e)
   return ret;
 }
 
+#define fmapf(stream, ...) ((stream) ? fprintf ((stream), __VA_ARGS__) : (int) 0)
 static void
 _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char b, void (*displayer) (FILE *stream, const void *data))
 {
@@ -144,41 +147,59 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
   {
     struct map *m = root->map;
     for (size_t i = 0; i < indent; i++)
-      fprintf (stream, " ");
-    fprintf (stream, "%c ", b);
-    fprintf (stream, "%p [%p]%s%s ", root, root->data, root == m->first ? " (f)" : "", root == m->last ? " (l)" : "");
-    if (displayer && root->data)
+      fmapf (stream, ". ");
+    fmapf (stream, "%c ", b);
+    fmapf (stream, "%p [%p]%s%s ", root, root->data, root == m->first ? " (f)" : "", root == m->last ? " (l)" : "");
+    if (displayer && stream && root->data)
     {
-      fprintf (stream, "[");
+      fmapf (stream, "[");
       displayer (stream, root->data);
-      fprintf (stream, "] ");
+      fmapf (stream, "] ");
     }
     for (struct map_elem * eq = root->eq; eq; eq = eq->eq)
-      if (eq->lt || eq->gt)
-        abort ();
-      else
+    {
+      assert (!eq->lt && !eq->gt);
+      assert (eq->upper && eq->upper->eq == eq && (!eq->eq || eq->eq->upper == eq));
+      fmapf (stream, "=%s %p [%p]%s%s ", (m->cmp_key && !m->cmp_key (root->key_from_data, eq->key_from_data, 0)) ? "" : "?", eq, eq->data,
+             eq == m->first ? " (f)" : "", eq == m->last ? " (l)" : "");
+      if (displayer && stream && eq->data)
       {
-        fprintf (stream, "=%s %p [%p]%s%s ", (m->cmp_key && !m->cmp_key (root->key_from_data, eq->key_from_data, 0)) ? "" : "?", eq, eq->data,
-                 eq == m->first ? " (f)" : "", eq == m->last ? " (l)" : "");
-        if (displayer && eq->data)
-        {
-          fprintf (stream, "[");
-          displayer (stream, eq->data);
-          fprintf (stream, "] ");
-        }
+        fmapf (stream, "[");
+        displayer (stream, eq->data);
+        fmapf (stream, "] ");
       }
-    fprintf (stream, "\n");
-    _map_scan_and_display (root->lt, stream, indent + 1, '>', displayer);
+    }
+    fmapf (stream, "\n");
+    assert (!root->gt || root->gt->upper == root);
     _map_scan_and_display (root->gt, stream, indent + 1, '<', displayer);
+    assert (!root->lt || root->lt->upper == root);
+    _map_scan_and_display (root->lt, stream, indent + 1, '>', displayer);
   }
 }
 
-void
+struct map *
 map_display (struct map *m, FILE *stream, void (*displayer) (FILE *stream, const void *data))
 {
   mtx_lock (&m->mutex);
-  _map_scan_and_display (m->root, stream, 0, '*', displayer);
+  assert (m->root || !m->nb_elem);
+  if (m->root)
+  {
+    _map_scan_and_display (m->root, stream, 0, '*', displayer);
+    assert (!m->root->upper);
+    assert (m->nb_elem);
+    assert (m->first);
+    assert (m->last);
+    assert (!m->root->upper && m->nb_elem && m->first && m->last);
+    assert (!m->first->lt);
+    assert (!m->first->upper || !m->first->upper->eq || (m->first->upper->eq != m->first));
+    struct map_elem *e;
+    for (e = m->last; e->upper && e->upper->eq == e; e = e->upper);
+    assert (!e->gt);
+  }
+  else
+    assert (!m->nb_elem && !m->first && !m->last);
   mtx_unlock (&m->mutex);
+  return m;
 }
 
 int
@@ -242,7 +263,9 @@ map_insert_data (struct map *l, void *data)
         iter = iter->gt;
       else                      // (!iter->gt) && (cmp > 0)
       {
-        if (((iter->gt = new)->upper = iter) == l->last)
+        struct map_elem *last;
+        for (last = l->last; last->upper && last->upper->eq == last; last = last->upper);
+        if (((iter->gt = new)->upper = iter) == last)
           l->last = new;
         break;
       }

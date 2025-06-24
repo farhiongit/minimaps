@@ -14,9 +14,9 @@
 #  define map_create(...)            TRACE_EXPRESSION(map_create (__VA_ARGS__))
 #  define map_destroy(...)           TRACE_EXPRESSION(map_destroy (__VA_ARGS__))
 #  define map_insert_data(...)       TRACE_EXPRESSION(map_insert_data (__VA_ARGS__))
-#  define map_traverse(...)          TRACE_EXPRESSION(map_traverse (__VA_ARGS__))
+#  define map_traverse(map, ...)          TRACE_EXPRESSION(map_traverse (map_display ((map), 0, 0), __VA_ARGS__))
+#  define map_traverse_backward(map, ...) TRACE_EXPRESSION(map_traverse_backward (map_display ((map), 0, 0), __VA_ARGS__))
 #  define map_find_key(...)          TRACE_EXPRESSION(map_find_key (__VA_ARGS__))
-#  define map_traverse_backward(...) TRACE_EXPRESSION(map_traverse_backward (__VA_ARGS__))
 #  define map_size(...)              TRACE_EXPRESSION(map_size (__VA_ARGS__))
 #endif
 
@@ -48,7 +48,7 @@ select_start_with_c (const void *data, void *res)
 }
 
 static void
-display (FILE *stream, const void *data)
+tostring (FILE *stream, const void *data)
 {
   fprintf (stream, "%s", (const char *) data);
 }
@@ -84,7 +84,7 @@ test1 (void)
     map_insert_data (li, "d");
     map_insert_data (li, "ba");
     fprintf (stdout, "%lu elements.\n", map_size (li));
-    map_display (li, stderr, display);
+    map_display (li, stderr, tostring);
 
     map_traverse (li, print_data, 0, 0);
     fprintf (stdout, "\n");
@@ -209,11 +209,18 @@ remove_apply_insert (void *data, void *res, int *remove)
   return 1;                     // Tells: continue traversing.
 }
 
+static void
+toint (FILE *stream, const void *data)
+{
+  fprintf (stream, "%i", *(const int *) data);
+}
+
 static int
 print_pi (void *data, void *res, int *remove)
 {
   (void) res;
-  fprintf (stdout, "%i ", *(int *) data);
+  toint (stdout, data);
+  fprintf (stdout, " ");
   *remove = 0;                  // Tells: do not remove the data from the map.
   return 1;                     // Tells: continue traversing.
 }
@@ -398,6 +405,39 @@ test4 (void)
   map_destroy (dictionary);
 }
 
+static int
+select_random (const void *data, void *res)
+{
+  (void) data;
+  (void) res;
+  return rand () % 2;
+}
+
+static void
+test5 (void)
+{
+  static const int NB = 100;
+  puts ("============================================================");
+  map *ints = map_create (0, cmpip, 0, 0);
+  for (size_t i = 0; i < NB; i++)
+  {
+    int *pi = malloc (sizeof (*pi));
+    *pi = rand () % NB;
+    map_insert_data (ints, pi);
+  }
+  map_display (ints, stderr, toint);
+  map_traverse (ints, print_pi, 0, 0);
+  fprintf (stdout, "\n");
+
+  map_traverse (ints, MAP_REMOVE_ALL, select_random, free);
+  map_display (ints, stderr, toint);
+  map_traverse (ints, print_pi, 0, 0);
+  fprintf (stdout, "\n");
+
+  map_traverse (ints, MAP_REMOVE_ALL, 0, free);
+  map_destroy (ints);
+}
+
 int
 main (void)
 {
@@ -406,4 +446,5 @@ main (void)
   test2 ();
   test3 ();
   test4 ();
+  test5 ();
 }
