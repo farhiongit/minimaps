@@ -81,30 +81,21 @@ while IFS= read -r newline ; do  # Read standard input stream
   ## Code between comments
   if (( comment )) ; then continue ; fi
   if [[ "$code" == "#"*([[:blank:]])"include"+([[:blank:]])* ]] ; then  # '#include'
-    code="${code//"\\"/"\\\\"}"
-    code="${code//"*"/"\\*"}"
-    code="${code//"_"/"\\_"}"
     echo -n -e "\n| Include |\n| - |\n| "
-    echo -n -E "${code#"#"*([[:blank:]])"include"+([[:blank:]])}"
+    echo -n -E "\`${code#"#"*([[:blank:]])"include"+([[:blank:]])}\`"
     echo -e " |\n"
   elif [[ "$code" == "#"*([[:blank:]])"define"+([[:blank:]])* ]] ; then  # '#define'
-    code="${code//"\\"/"\\\\"}"
-    code="${code//"*"/"\\*"}"
-    code="${code//"_"/"\\_"}"
     code="${code#"#"*([[:blank:]])"define"+([[:blank:]])}"
     echo -n -e "\n| Define | Value |\n| - | - |\n| "
-    echo -n -E "${code/+([[:blank:]])/" | "}"
-    echo -e " |\n"
+    echo -n -E "\`${code/+([[:blank:]])/"\` | \`"}"
+    echo -e "\` |\n"
   elif [[ "$code" == "#"* ]] ; then
     :
   elif [[ "$code" == *([[:blank:]])"typedef"+([[:blank:]])* ]] ; then  # 'typedef'
-    code="${code//"\\"/"\\\\"}"
-    code="${code//"*"/"\\*"}"
-    code="${code//"_"/"\\_"}"
     code="${code#*([[:blank:]])"typedef"+([[:blank:]])}"
     code="${code%";"*([[:blank:]])}"
     echo -n -e "\n| Type definition |\n| - |\n| "
-    echo -n -E "$code"
+    echo -n -E "\`$code\`"
     echo -e " |\n"
   elif [[ "$code" != *([[:blank:]]) ]] ; then              # code
     echo -e '```c'
@@ -120,3 +111,4 @@ echo -e "*This page was generated automatically from \`${1##*/}\` by \`${0##*/}\
 echo
 echo -----
 echo
+

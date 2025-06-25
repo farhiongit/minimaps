@@ -214,6 +214,7 @@ extern map_operator MAP_REMOVE_ALL;
 extern map_operator MAP_MOVE_TO;
 
 // For debugging purpose:
+#  define map_check(map) map_display ((map), 0, 0)
 struct map *map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
 
 #endif

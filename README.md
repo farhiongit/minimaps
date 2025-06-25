@@ -21,19 +21,19 @@ The interface has only 7 functions to do everything:
 
 | Define | Value |
 | - | - |
-| \_\_MAP\_H\_\_ |
+| `__MAP_H__` |
 
 
 | Include |
 | - |
-| <stdio.h> |
+| `<stdio.h>` |
 
 ### Map
 A map as an opaque Abstract Data Type (internally modelled as a sorted binary tree):
 
 | Type definition |
 | - |
-| struct map map |
+| `struct map map` |
 
 The map stores pointers to allocated data:
 
@@ -49,7 +49,7 @@ The key of the map is extracted from the data stored in it (generally but not ne
 
 | Type definition |
 | - |
-| const void \*(\*map\_key\_extractor) (void \*data) |
+| `const void *(*map_key_extractor) (void *data)` |
 
 > Functions of type `map_key_extractor` should not allocate memory dynamically.
 
@@ -78,7 +78,7 @@ The type of a user-defined function that compares two keys of elements of a map.
 
 | Type definition |
 | - |
-| int (\*map\_key\_comparator) (const void \*key\_a, const void \*key\_b, void \*arg) |
+| `int (*map_key_comparator) (const void *key_a, const void *key_b, void *arg)` |
 
 `key_a` and `key_b` are pointers to keys, as they would be returned by a function of type `map_key_extractor`.
 
@@ -111,7 +111,7 @@ The type of a user-defined function that selects elements while traversing a map
 
 | Type definition |
 | - |
-| int (\*map\_selector) (const void \*data, void \*context) |
+| `int (*map_selector) (const void *data, void *context)` |
 
 The data of the element of the map is passed as the first argument of the map_selector.
 
@@ -129,7 +129,7 @@ The type of a user-defined function that operates on (and optionally removes) an
 
 | Type definition |
 | - |
-| int (\*map\_operator) (void \*data, void \*context, int \*remove) |
+| `int (*map_operator) (void *data, void *context, int *remove)` |
 
 The data of the element of the map is passed as the first argument of the `map_operator`.
 
@@ -380,8 +380,13 @@ N.B.: A destination map identical to the source map would **deadly lock** the ca
 extern map_operator MAP_MOVE_TO;
 ```
 For debugging purpose:
+
+| Define | Value |
+| - | - |
+| `map_check(map)` | `map_display ((map), 0, 0)` |
+
 ```c
-struct map * map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
+struct map *map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
 ```
 
 -----
@@ -400,12 +405,12 @@ Language: C (C11 or higher).
 
 | Define | Value |
 | - | - |
-| \_\_TIMERS\_H\_\_ |
+| `__TIMERS_H__` |
 
 
 | Include |
 | - |
-| <time.h> |
+| `<time.h>` |
 
 timer_create and timer_settime are POSIX functions that create and set timers, based on signals or threads. They are nevertheless difficult to use.
 
