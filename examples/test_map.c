@@ -11,13 +11,13 @@
 #include "map.h"
 #include "trace.h"
 #if 1
-#  define map_create(...)            TRACE_EXPRESSION(map_create (__VA_ARGS__))
-#  define map_destroy(...)           TRACE_EXPRESSION(map_destroy (__VA_ARGS__))
-#  define map_insert_data(...)       TRACE_EXPRESSION(map_insert_data (__VA_ARGS__))
+#  define map_create(...)                 TRACE_EXPRESSION(map_check (map_create (__VA_ARGS__)))
+#  define map_destroy(map)                TRACE_EXPRESSION(map_destroy (map_check ((map))))
+#  define map_insert_data(map, ...)       TRACE_EXPRESSION(map_insert_data (map_check ((map)), __VA_ARGS__))
 #  define map_traverse(map, ...)          TRACE_EXPRESSION(map_traverse (map_check ((map)), __VA_ARGS__))
 #  define map_traverse_backward(map, ...) TRACE_EXPRESSION(map_traverse_backward (map_check ((map)), __VA_ARGS__))
-#  define map_find_key(...)          TRACE_EXPRESSION(map_find_key (__VA_ARGS__))
-#  define map_size(...)              TRACE_EXPRESSION(map_size (__VA_ARGS__))
+#  define map_find_key(map, ...)          TRACE_EXPRESSION(map_find_key (map_check ((map)), __VA_ARGS__))
+#  define map_size(map)                   TRACE_EXPRESSION(map_size (map_check ((map))))
 #endif
 
 static int
@@ -399,6 +399,7 @@ test4 (void)
                    {.word = "Peach" });
   map_insert_data (dictionary, &(struct crossword)
                    {.word = "Grapes" });
+  map_display (dictionary, stderr, 0);
   fprintf (stdout, "%lu element(s) checked.\n", map_find_key (dictionary, &l, match, pattern));
   fprintf (stdout, "%lu element(s).\n", map_size (dictionary));
   map_traverse (dictionary, MAP_REMOVE_ALL, 0, 0);

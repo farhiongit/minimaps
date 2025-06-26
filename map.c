@@ -149,25 +149,29 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
     for (size_t i = 0; i < indent; i++)
       fmapf (stream, ". ");
     fmapf (stream, "%c ", b);
-    fmapf (stream, "%p [%p]%s%s ", root, root->data, root == m->first ? " (f)" : "", root == m->last ? " (l)" : "");
+    fmapf (stream, "%p%s%s", root, root == m->first ? " (f)" : "", root == m->last ? " (l)" : "");
     if (displayer && stream && root->data)
     {
-      fmapf (stream, "[");
+      fmapf (stream, " [= ");
       displayer (stream, root->data);
       fmapf (stream, "] ");
     }
+    else
+      fmapf (stream, " [= *%p] ", root->data);
     for (struct map_elem * eq = root->eq; eq; eq = eq->eq)
     {
       assert (!eq->lt && !eq->gt);
       assert (eq->upper && eq->upper->eq == eq && (!eq->eq || eq->eq->upper == eq));
-      fmapf (stream, "=%s %p [%p]%s%s ", (m->cmp_key && !m->cmp_key (root->key_from_data, eq->key_from_data, 0)) ? "" : "?", eq, eq->data,
+      fmapf (stream, "=%s %p%s%s ", (m->cmp_key && !m->cmp_key (root->key_from_data, eq->key_from_data, 0)) ? "=" : "?", eq,
              eq == m->first ? " (f)" : "", eq == m->last ? " (l)" : "");
       if (displayer && stream && eq->data)
       {
-        fmapf (stream, "[");
+        fmapf (stream, "[= ");
         displayer (stream, eq->data);
         fmapf (stream, "] ");
       }
+      else
+        fmapf (stream, " [= *%p] ", eq->data);
     }
     fmapf (stream, "\n");
     assert (!root->gt || root->gt->upper == root);
@@ -181,7 +185,6 @@ struct map *
 map_display (struct map *m, FILE *stream, void (*displayer) (FILE *stream, const void *data))
 {
   mtx_lock (&m->mutex);
-  assert (m->root || !m->nb_elem);
   if (m->root)
   {
     _map_scan_and_display (m->root, stream, 0, '*', displayer);
@@ -193,7 +196,7 @@ map_display (struct map *m, FILE *stream, void (*displayer) (FILE *stream, const
     assert (!m->first->lt);
     assert (!m->first->upper || !m->first->upper->eq || (m->first->upper->eq != m->first));
     struct map_elem *e;
-    for (e = m->last; e->upper && e->upper->eq == e; e = e->upper);
+    for (e = m->last; e->upper && e->upper->eq == e; e = e->upper) /**/;
     assert (!e->gt);
   }
   else
