@@ -58,10 +58,12 @@ lib%.a: %.o
 	$(AR) $(ARFLAGS) -- "$@" "$^"
 	@nm -A -g --defined-only -- "$@"
 
+.INTERMEDIATE: timer.o map.o
+
 #### Documentation
 .PHONY: doc
 doc: README_map.html README_timer.html README.md
-.SECONDARY: README_map.md README_timer.md
+.INTERMEDIATE: README_map.md README_timer.md
 
 README.md: README_map.md README_timer.md
 	cat README_map.md README_timer.md >| README.md
