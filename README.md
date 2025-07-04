@@ -301,7 +301,7 @@ Returns the number of elements of the map that match `sel` (if set) and on which
 > If `op` and `sel `are null, `map_traverse` and `map_traverse_backward` simply count and return the number of elements.
 
 
-Complexity : n * log n (see (*)). MT-safe. Non-recursive.
+Complexity : n. MT-safe. Non-recursive.
 
 
 > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `context` argument).

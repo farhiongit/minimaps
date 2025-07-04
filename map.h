@@ -167,7 +167,7 @@ size_t map_traverse_backward (map * map, map_operator op, map_selector sel, void
 // Returns the number of elements of the map that match `sel` (if set) and on which the operator `op` (if set) has been applied.
 // > If `op` is null, `map_traverse` and `map_traverse_backward` simply count and return the number of matching elements with the selector `sel` (if set).
 // > If `op` and `sel `are null, `map_traverse` and `map_traverse_backward` simply count and return the number of elements.
-// Complexity : n * log n (see (*)). MT-safe. Non-recursive.
+// Complexity : n. MT-safe. Non-recursive.
 // > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `context` argument).
 // > Therefore, elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while traversing elements.
 // > Insertion while traversing should be done with care since an infinite loop will occur if, in `op`, an element is removed and :

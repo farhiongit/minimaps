@@ -11,6 +11,7 @@
 struct map_elem
 {
   struct map_elem *upper, *lt, *eq, *gt;
+  struct map_elem *previous, *next;
   void *data;
   const void *key_from_data;
   struct map *map;
@@ -149,6 +150,12 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
     for (size_t i = 0; i < indent; i++)
       fmapf (stream, ". ");
     fmapf (stream, "%c ", b);
+    assert (root == m->first ? root->previous == 0 : root->previous != 0);
+    assert (root == m->last ? root->next == 0 : root->next != 0);
+    assert (root->previous == _map_previous (root));
+    assert (root->next == _map_next (root));
+    assert (!root->previous || root->previous->next == root);
+    assert (!root->next || root->next->previous == root);
     fmapf (stream, "%p%s%s", root, root == m->first ? " (f)" : "", root == m->last ? " (l)" : "");
     if (displayer && stream && root->data)
     {
@@ -162,6 +169,12 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
     {
       assert (!eq->lt && !eq->gt);
       assert (eq->upper && eq->upper->eq == eq && (!eq->eq || eq->eq->upper == eq));
+      assert (eq == m->first ? eq->previous == 0 : eq->previous != 0);
+      assert (eq == m->last ? eq->next == 0 : eq->next != 0);
+      assert (eq->previous == _map_previous (eq));
+      assert (eq->next == _map_next (eq));
+      assert (!eq->previous || eq->previous->next == eq);
+      assert (!eq->next || eq->next->previous == eq);
       fmapf (stream, "=%s %p%s%s ", (m->cmp_key && !m->cmp_key (root->key_from_data, eq->key_from_data, 0)) ? "=" : "?", eq,
              eq == m->first ? " (f)" : "", eq == m->last ? " (l)" : "");
       if (displayer && stream && eq->data)
@@ -196,7 +209,7 @@ map_display (struct map *m, FILE *stream, void (*displayer) (FILE *stream, const
     assert (!m->first->lt);
     assert (!m->first->upper || !m->first->upper->eq || (m->first->upper->eq != m->first));
     struct map_elem *e;
-    for (e = m->last; e->upper && e->upper->eq == e; e = e->upper) /**/;
+    for (e = m->last; e->upper && e->upper->eq == e; e = e->upper);
     assert (!e->gt);
   }
   else
@@ -226,7 +239,6 @@ map_insert_data (struct map *l, void *data)
   new->key_from_data = l->get_key ? l->get_key (new->data) : 0; // The key is evaluated only once, at insertion.
   struct map_elem *iter;
   int cmp;
-  unsigned int ret = 1;
   if (!(iter = l->root))
     l->root = l->first = l->last = new;
   else if (!l->cmp_key)
@@ -252,7 +264,7 @@ map_insert_data (struct map *l, void *data)
         fprintf (stderr, "%s: %s\n", __func__, "Already exists. Not inserted.");
         errno = EPERM;
         free (new);             // new is not inserted.
-        ret = 0;
+        new = 0;
         break;
       }
       else if (cmp == 0)        // && !l->uniqueness
@@ -272,9 +284,16 @@ map_insert_data (struct map *l, void *data)
           l->last = new;
         break;
       }
-  l->nb_elem += ret;
+  if (new)
+  {
+    if ((new->next = _map_next (new)))
+      new->next->previous = new;
+    if ((new->previous = _map_previous (new)))
+      new->previous->next = new;
+    l->nb_elem++;
+  }
   mtx_unlock (&l->mutex);
-  return (int) ret;
+  return new ? 1 : 0;
 }
 
 static void *
@@ -284,10 +303,15 @@ _map_remove (struct map_elem *old)
   struct map *l = e->map;
   void *data = e->data;
 
+  if (e->previous)
+    e->previous->next = e->next;
+  if (e->next)
+    e->next->previous = e->previous;
+
   if (l->first == e)
-    l->first = _map_next (e);
+    l->first = e->next;
   if (l->last == e)
-    l->last = _map_previous (e);
+    l->last = e->previous;
 
   if (e->upper && e->upper->eq == e)
   {
@@ -369,7 +393,7 @@ _map_traverse (map *m, map_operator op, map_selector sel, void *context, int bac
         go_on = op (e->data, context, &remove);
       nb_op++;
     }
-    struct map_elem *n = backward ? _map_previous (e) : _map_next (e);
+    struct map_elem *n = backward ? e->previous : e->next;
     if (remove)
       _map_remove (e);
     if (!go_on)

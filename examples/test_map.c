@@ -420,7 +420,7 @@ test5 (void)
   static const int NB = 100;
   puts ("============================================================");
   map *ints = map_create (0, cmpip, 0, 0);
-  for (size_t i = 0; i < NB; i++)
+  for (size_t i = 0; i < (size_t) NB; i++)
   {
     int *pi = malloc (sizeof (*pi));
     *pi = rand () % NB;
