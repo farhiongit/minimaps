@@ -107,7 +107,7 @@ done < "$1"
 echo
 echo -----
 echo
-echo -e "*This page was generated automatically from \`${1##*/}\` by \`${0##*/}\`.*"
+echo -e "*This page was automatically generated from \`${1##*/}\` with \`${0##*/}\`.*"
 echo
 echo -----
 echo

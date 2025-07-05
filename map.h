@@ -1,10 +1,11 @@
 /********************** # Map me ! *********************/
-// **A unprecedented MT-safe implementation of a map library that can manage maps, sets, sorted and unsorted lists that can do it all with a minimalist interface.**
+// **A unprecedented MT-safe implementation of a map library that can manage maps, sets, sorted and unsorted lists and that can do it all with a minimalist interface.**
 //
 // (c) L. Farhi, 2024.
 // Language: C (C11 or higher).
 
-/* The interface has only 7 functions to do everything:
+/* This library manages sorted maps, sorted sets, sorted and unsorted lists, FIFO and LIFO queues (depending on how the "map" is created).
+   The interface has only 7 functions to do everything (create, read, update, insert, remove, destroy):
 
 - `map_create`
 - `map_destroy`
@@ -13,12 +14,15 @@
 - `map_find_key` (MT-safe)
 - `map_traverse` (MT-safe)
 - `map_traverse_backward` (MT-safe)
+
+They are detailed below.
+> All calls are MT-safe: concurrent threads using the same "map" will synchronise (block and wait for each other).
+> All calls are non-recursive.
 */
 
 // ## Type definitions
 #ifndef  __MAP_H__
 #  define __MAP_H__
-#  include <stdio.h>
 
 // ### Map
 // A map as an opaque Abstract Data Type (internally modelled as a sorted binary tree):
@@ -81,7 +85,8 @@ typedef int (*map_selector) (const void *data, void *context);
 // Should return `1` if the `data` conforms to the user-defined conditions (and should be selected by `map_traverse` or `map_traverse_backward`), `0` otherwise.
 
 // ### Operator on elements of the map
-// The type of a user-defined function that operates on (and optionally removes) an element of a map picked by `map_traverse`, `map_traverse_backward` or `map_find_key`.
+// The type of a user-defined function that operates on (accesses, and optionally modifies or removes) an element of a map
+// picked by `map_traverse`, `map_traverse_backward` or `map_find_key`.
 typedef int (*map_operator) (void *data, void *context, int *remove);
 // The data of the element of the map is passed as the first argument of the `map_operator`.
 // The second argument `context` receives the pointer passed to `map_traverse`, `map_traverse_backward` and `map_find_key` (as last argument).
@@ -90,8 +95,9 @@ typedef int (*map_operator) (void *data, void *context, int *remove);
 //
 //   - the element will be removed from the map thread-safely ;
 //   - the operator **should** keep track and ultimately free the data passed to it if it was allocated dynamically (otherwise data would be lost in memory leaks).
-// The `map_operator` should return `1` if the operator should be applied on further elements of the map, `0` otherwise.
-// In other words, as soon as the operator returns `0`, it stops `map_traverse`, `map_traverse_backward` or `map_find_key`. 
+// The `map_operator` should return `1` if the operator should be applied on further elements of the map, `0` otherwise. In other words,
+// as soon as the operator returns `0`, it stops `map_traverse`, `map_traverse_backward` or `map_find_key`. 
+// > The operator `map_operator` should neither modify the pointer returned by `map_key_extractor` nor its content (as evaluated by `map_key_comparator`). In other words, the key of the element in the map should remain untouched by `map_operator`, otherwise results are undefined.
 
 // ## Interface
 
@@ -148,13 +154,13 @@ size_t map_find_key (struct map *map, const void *key, map_operator op, void *co
 // If `get_key` is not null, applies `op` on the data of the elements in the map that matches the key (for which `cmp_key (get_key (data))` returns `0`), as long as `op` returns non-zero.
 // If `get_key` is null, applies `operator` on the data of the elements in the map that matches the data (for which `cmp_key (data)` returns `0`), as long as `op` returns non-zero.
 // If `op` is null, all the matching elements are found (and counted).
-// > `cmp_key` should have been previously set by `map_create`.
 // `context` is passed as the second argument of operator `op`.
 // Returns the number of elements on which the operator `op` has been applied.
-// > If `op` is null, `map_find_key` simply counts and returns the number of matching elements with the `key`.
 // Complexity : log n (see (*)). MT-safe. Non-recursive.
-// > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `context` argument).
-// > Therefore, elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while finding elements.
+// > `cmp_key` should have been previously set by `map_create`.
+// > If `op` is null, `map_find_key` simply counts and returns the number of matching elements with the `key`.
+// > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `context` argument). Therefore,
+// elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while finding elements.
 
 // #### Traverse a map
 size_t map_traverse (map * map, map_operator op, map_selector sel, void *context);
@@ -165,11 +171,10 @@ size_t map_traverse_backward (map * map, map_operator op, map_selector sel, void
 // If the selector `sel` is not null, elements for which `sel (data)` (where `data` is an element previously inserted into the map) returns `0` are ignored. `map_traverse` (resp.`map_traverse_backward`) behaves as if the operator `op` would start with: `if (!sel (data, context)) return 1;`.
 // `context` is passed as the second argument of operator `op` and selector `sel`.
 // Returns the number of elements of the map that match `sel` (if set) and on which the operator `op` (if set) has been applied.
-// > If `op` is null, `map_traverse` and `map_traverse_backward` simply count and return the number of matching elements with the selector `sel` (if set).
-// > If `op` and `sel `are null, `map_traverse` and `map_traverse_backward` simply count and return the number of elements.
 // Complexity : n. MT-safe. Non-recursive.
-// > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `context` argument).
-// > Therefore, elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while traversing elements.
+// > If `op` is null, `map_traverse` and `map_traverse_backward` simply count and return the number of matching elements with the selector `sel` (if set). If `op` and `sel `are null, `map_traverse` and `map_traverse_backward` simply count and return the number of elements.
+// > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `context` argument). Therefore,
+// elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while traversing elements.
 // > Insertion while traversing should be done with care since an infinite loop will occur if, in `op`, an element is removed and :
 // >
 // >  - while traversing forward, at least an equal or greater element is inserted ;
@@ -213,8 +218,10 @@ extern map_operator MAP_REMOVE_ALL;
 // N.B.: A destination map identical to the source map would **deadly lock** the calling thread.
 extern map_operator MAP_MOVE_TO;
 
-// For debugging purpose:
+// ## For debugging purpose
+#  include <stdio.h>
 #  define map_check(map) map_display ((map), 0, 0)
 struct map *map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
+// For fans only.
 
 #endif

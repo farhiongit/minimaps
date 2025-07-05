@@ -1,5 +1,5 @@
 # Map me !
-**A unprecedented MT-safe implementation of a map library that can manage maps, sets, sorted and unsorted lists that can do it all with a minimalist interface.**
+**A unprecedented MT-safe implementation of a map library that can manage maps, sets, sorted and unsorted lists and that can do it all with a minimalist interface.**
 
 (c) L. Farhi, 2024.
 
@@ -7,7 +7,10 @@
 Language: C (C11 or higher).
 
 
-The interface has only 7 functions to do everything:
+This library manages sorted maps, sorted sets, sorted and unsorted lists, FIFO and LIFO queues (depending on how the "map" is created).
+
+
+  The interface has only 7 functions to do everything (create, read, update, insert, remove, destroy):
 
 - `map_create`
 - `map_destroy`
@@ -17,16 +20,21 @@ The interface has only 7 functions to do everything:
 - `map_traverse` (MT-safe)
 - `map_traverse_backward` (MT-safe)
 
+They are detailed below.
+
+
+> All calls are MT-safe: concurrent threads using the same "map" will synchronise (block and wait for each other).
+
+
+> All calls are non-recursive.
+
+
+
 ## Type definitions
 
 | Define | Value |
 | - | - |
 | `__MAP_H__` |
-
-
-| Include |
-| - |
-| `<stdio.h>` |
 
 ### Map
 A map as an opaque Abstract Data Type (internally modelled as a sorted binary tree):
@@ -123,7 +131,8 @@ Should return `1` if the `data` conforms to the user-defined conditions (and sho
 
 
 ### Operator on elements of the map
-The type of a user-defined function that operates on (and optionally removes) an element of a map picked by `map_traverse`, `map_traverse_backward` or `map_find_key`.
+The type of a user-defined function that operates on (accesses, and optionally modifies or removes) an element of a map
+picked by `map_traverse`, `map_traverse_backward` or `map_find_key`.
 
 
 
@@ -146,10 +155,11 @@ If (and only if) the operator sets `*remove` to a non-zero value,
   - the operator **should** keep track and ultimately free the data passed to it if it was allocated dynamically (otherwise data would be lost in memory leaks).
 
 
-The `map_operator` should return `1` if the operator should be applied on further elements of the map, `0` otherwise.
+The `map_operator` should return `1` if the operator should be applied on further elements of the map, `0` otherwise. In other words,
+as soon as the operator returns `0`, it stops `map_traverse`, `map_traverse_backward` or `map_find_key`.
 
 
-In other words, as soon as the operator returns `0`, it stops `map_traverse`, `map_traverse_backward` or `map_find_key`.
+> The operator `map_operator` should neither modify the pointer returned by `map_key_extractor` nor its content (as evaluated by `map_key_comparator`). In other words, the key of the element in the map should remain untouched by `map_operator`, otherwise results are undefined.
 
 
 ## Interface
@@ -249,25 +259,23 @@ If `get_key` is null, applies `operator` on the data of the elements in the map 
 If `op` is null, all the matching elements are found (and counted).
 
 
-> `cmp_key` should have been previously set by `map_create`.
-
-
 `context` is passed as the second argument of operator `op`.
 
 
 Returns the number of elements on which the operator `op` has been applied.
 
 
-> If `op` is null, `map_find_key` simply counts and returns the number of matching elements with the `key`.
-
-
 Complexity : log n (see (*)). MT-safe. Non-recursive.
 
 
-> `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `context` argument).
+> `cmp_key` should have been previously set by `map_create`.
 
 
-> Therefore, elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while finding elements.
+> If `op` is null, `map_find_key` simply counts and returns the number of matching elements with the `key`.
+
+
+> `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `context` argument). Therefore,
+elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while finding elements.
 
 
 #### Traverse a map
@@ -295,19 +303,14 @@ If the selector `sel` is not null, elements for which `sel (data)` (where `data`
 Returns the number of elements of the map that match `sel` (if set) and on which the operator `op` (if set) has been applied.
 
 
-> If `op` is null, `map_traverse` and `map_traverse_backward` simply count and return the number of matching elements with the selector `sel` (if set).
-
-
-> If `op` and `sel `are null, `map_traverse` and `map_traverse_backward` simply count and return the number of elements.
-
-
 Complexity : n. MT-safe. Non-recursive.
 
 
-> `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `context` argument).
+> If `op` is null, `map_traverse` and `map_traverse_backward` simply count and return the number of matching elements with the selector `sel` (if set). If `op` and `sel `are null, `map_traverse` and `map_traverse_backward` simply count and return the number of elements.
 
 
-> Therefore, elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while traversing elements.
+> `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `context` argument). Therefore,
+elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while traversing elements.
 
 
 > Insertion while traversing should be done with care since an infinite loop will occur if, in `op`, an element is removed and :
@@ -379,7 +382,12 @@ N.B.: A destination map identical to the source map would **deadly lock** the ca
 ```c
 extern map_operator MAP_MOVE_TO;
 ```
-For debugging purpose:
+## For debugging purpose
+
+| Include |
+| - |
+| `<stdio.h>` |
+
 
 | Define | Value |
 | - | - |
@@ -388,10 +396,13 @@ For debugging purpose:
 ```c
 struct map *map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
 ```
+For fans only.
+
+
 
 -----
 
-*This page was generated automatically from `map.h` by `h2md`.*
+*This page was automatically generated from `map.h` with `h2md`.*
 
 -----
 
@@ -449,7 +460,7 @@ For use to feed the first argument of `timer_set`.
 
 -----
 
-*This page was generated automatically from `timer.h` by `h2md`.*
+*This page was automatically generated from `timer.h` with `h2md`.*
 
 -----
 
