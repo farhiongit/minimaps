@@ -146,7 +146,6 @@ test1 (void)
     map_traverse (li, print_data, 0, 0);
     fprintf (stdout, "\n");
     fprintf (stdout, "%lu elements.\n", map_size (li));
-    map_traverse (li, MAP_REMOVE_ALL, 0, 0);
     map_destroy (li);
     fprintf (stdout, "=======\n");
   }

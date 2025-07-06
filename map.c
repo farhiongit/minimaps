@@ -74,7 +74,7 @@ map_destroy (struct map *l)
   if (!l)
   {
     errno = EINVAL;
-    return EXIT_FAILURE;
+    return 0;
   }
   mtx_lock (&l->mutex);
   if (l->first)
@@ -82,12 +82,12 @@ map_destroy (struct map *l)
     errno = EPERM;
     fprintf (stderr, "%s: %s\n", __func__, "Not empty. Not destroyed.");
     mtx_unlock (&l->mutex);
-    return EXIT_FAILURE;
+    return 0;
   }
   mtx_unlock (&l->mutex);
   mtx_destroy (&l->mutex);
   free (l);
-  return EXIT_SUCCESS;
+  return 1;
 }
 
 size_t
@@ -140,7 +140,7 @@ _map_next (struct map_elem *e)
   return ret;
 }
 
-#define fmapf(stream, ...) ((stream) ? fprintf ((stream), __VA_ARGS__) : (int) 0)
+#define fmapf(stream, ...) ((stream) ? (fprintf ((stream), __VA_ARGS__) + (fflush (stream), (int) 0)): (int) 0)
 static void
 _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char b, void (*displayer) (FILE *stream, const void *data))
 {
@@ -156,15 +156,16 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
     assert (root->next == _map_next (root));
     assert (!root->previous || root->previous->next == root);
     assert (!root->next || root->next->previous == root);
-    fmapf (stream, "%p%s%s", root, root == m->first ? " (f)" : "", root == m->last ? " (l)" : "");
+    fmapf (stream, "%p ", root);
     if (displayer && stream && root->data)
     {
-      fmapf (stream, " [= ");
+      fmapf (stream, "[= ");
       displayer (stream, root->data);
       fmapf (stream, "] ");
     }
     else
-      fmapf (stream, " [= *%p] ", root->data);
+      fmapf (stream, "[= *%p] ", root->data);
+    fmapf (stream, "%s%s", root == m->first ? "(f) " : "", root == m->last ? "(l) " : "");
     for (struct map_elem * eq = root->eq; eq; eq = eq->eq)
     {
       assert (!eq->lt && !eq->gt);
@@ -175,8 +176,7 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
       assert (eq->next == _map_next (eq));
       assert (!eq->previous || eq->previous->next == eq);
       assert (!eq->next || eq->next->previous == eq);
-      fmapf (stream, "=%s %p%s%s ", (m->cmp_key && !m->cmp_key (root->key_from_data, eq->key_from_data, 0)) ? "=" : "?", eq,
-             eq == m->first ? " (f)" : "", eq == m->last ? " (l)" : "");
+      fmapf (stream, "=%s %p ", (m->cmp_key && !m->cmp_key (root->key_from_data, eq->key_from_data, 0)) ? "=" : "?", eq);
       if (displayer && stream && eq->data)
       {
         fmapf (stream, "[= ");
@@ -184,7 +184,8 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
         fmapf (stream, "] ");
       }
       else
-        fmapf (stream, " [= *%p] ", eq->data);
+        fmapf (stream, "[= *%p] ", eq->data);
+      fmapf (stream, "%s%s", eq == m->first ? "(f) " : "", eq == m->last ? "(l) " : "");
     }
     fmapf (stream, "\n");
     assert (!root->gt || root->gt->upper == root);

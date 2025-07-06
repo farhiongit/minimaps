@@ -134,7 +134,7 @@ map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *ar
 int map_destroy (map *);
 // Destroys an **empty** and previously created map.
 // If the map is not empty, the map is not destroyed.
-// Returns `EXIT_FAILURE` (and `errno` set to `EPERM`) if the map is not empty (and the map is NOT destroyed), `EXIT_SUCCESS` otherwise.
+// Returns `0` (and `errno` set to `EPERM`) if the map is not empty (and the map is NOT destroyed), `1` otherwise.
 
 // ### Retrieve the number of elements in a map
 size_t map_size (map *);
