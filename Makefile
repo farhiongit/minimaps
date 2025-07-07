@@ -4,6 +4,7 @@ LDFLAGS=
 #CHECK=valgrind --leak-check=full --show-leak-kinds=all
 #CHECK=ddd
 #CHECK=gdb
+#CHECK=time
 
 .PHONY: all
 all: README.md libmap.a libmap.so test_map libtimer.a libtimer.so test_timer
@@ -24,7 +25,7 @@ examples/test_map: examples/test_map.c
 .PHONY: test_timer
 test_timer: libmap.so libtimer.so examples/test_timer
 	@echo "********* $@ ************"
-	LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:. time $(CHECK) ./examples/test_timer
+	LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:. $(CHECK) ./examples/test_timer
 	@echo "*********************"
 
 examples/test_timer: CFLAGS+=-std=c23

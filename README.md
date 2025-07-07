@@ -328,6 +328,25 @@ elements can be removed from (when `*remove` is set to `1` in `op`) or inserted 
 But useful operators are provided below.
 
 
+#### Map operator to retrieve one element
+This map operator simply retrieves one element from the map.
+
+
+```c
+extern map_operator MAP_GET_ONE;
+```
+> Its use is **not recommended** though. Actions on an element should better be directly integrated in the `map_operator` function.
+
+
+The helper operator `MAP_GET_ONE` retrieves an element found by `map_find_key`, `map_traverse` or `map_traverse_backward`
+and, if the parameter `context` of `map_find_key`, `map_traverse` or `map_traverse_backward` is a non null pointer,
+it sets the pointer `context` to the data of this element.
+
+
+`context` **should be** the address of a pointer to type T, where `context` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
+
+
+Example: to get the last element, use `T *data = 0; if (map_traverse_backward (m, MAP_GET_ONE, 0, &data)) { ... }`
 #### Map operator to retrieve and remove one element
 This map operator simply retrieves and removes one element from the map.
 

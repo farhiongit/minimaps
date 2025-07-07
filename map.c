@@ -467,6 +467,17 @@ _MAP_REMOVE (void *data, void *context, int *remove)
 map_operator MAP_REMOVE_ONE = _MAP_REMOVE;
 
 static int
+_MAP_GET (void *data, void *context, int *remove)
+{
+  if (context)
+    *(void **) context = data;  // *context is supposed to be a pointer here.
+  *remove = 0;
+  return 0;
+}
+
+map_operator MAP_GET_ONE = _MAP_GET;
+
+static int
 _MAP_REMOVE_ALL (void *data, void *context, int *remove)
 {
   if (context)
