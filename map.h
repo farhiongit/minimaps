@@ -79,17 +79,17 @@ typedef int (*map_key_comparator) (const void *key_a, const void *key_b, void *a
 
 // ### Selector on elements of the map
 // The type of a user-defined function that selects elements while traversing a map with `map_traverse` or `map_traverse_backward`. 
-typedef int (*map_selector) (const void *data, void *context);
+typedef int (*map_selector) (const void *data, void *sel_arg);
 // The data of the element of the map is passed as the first argument of the map_selector.
-// The second argument `context` receives the pointer passed to `map_traverse` and `map_traverse_backward` (as last argument).
+// The second argument `sel_arg` receives the pointer passed to `map_traverse` and `map_traverse_backward`.
 // Should return `1` if the `data` conforms to the user-defined conditions (and should be selected by `map_traverse` or `map_traverse_backward`), `0` otherwise.
 
 // ### Operator on elements of the map
 // The type of a user-defined function that operates on (accesses, and optionally modifies or removes) an element of a map
 // picked by `map_traverse`, `map_traverse_backward` or `map_find_key`.
-typedef int (*map_operator) (void *data, void *context, int *remove);
+typedef int (*map_operator) (void *data, void *op_arg, int *remove);
 // The data of the element of the map is passed as the first argument of the `map_operator`.
-// The second argument `context` receives the pointer passed to `map_traverse`, `map_traverse_backward` and `map_find_key` (as last argument).
+// The second argument `op_arg` receives the pointer passed to `map_traverse`, `map_traverse_backward` and `map_find_key`.
 // The third argument `remove` receives a non-null pointer for which `*remove` is set to `0`.
 // If (and only if) the operator sets `*remove` to a non-zero value,
 //
@@ -150,30 +150,30 @@ int map_insert_data (map *, void *data);
 // ### Retrieve and remove elements from a map
 
 // #### Find an element from its key
-size_t map_find_key (struct map *map, const void *key, map_operator op, void *context);
+size_t map_find_key (struct map *map, const void *key, map_operator op, void *op_arg);
 // If `get_key` is not null, applies `op` on the data of the elements in the map that matches the key (for which `cmp_key (get_key (data))` returns `0`), as long as `op` returns non-zero.
 // If `get_key` is null, applies `operator` on the data of the elements in the map that matches the data (for which `cmp_key (data)` returns `0`), as long as `op` returns non-zero.
 // If `op` is null, all the matching elements are found (and counted).
-// `context` is passed as the second argument of operator `op`.
+// `op_arg` is passed as the second argument of operator `op`.
 // Returns the number of elements on which the operator `op` has been applied.
 // Complexity : log n (see (*)). MT-safe. Non-recursive.
 // > `cmp_key` should have been previously set by `map_create`.
 // > If `op` is null, `map_find_key` simply counts and returns the number of matching elements with the `key`.
-// > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `context` argument). Therefore,
+// > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `op_arg` argument). Therefore,
 // elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while finding elements.
 
 // #### Traverse a map
-size_t map_traverse (map * map, map_operator op, map_selector sel, void *context);
-size_t map_traverse_backward (map * map, map_operator op, map_selector sel, void *context);
+size_t map_traverse (map * map, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
+size_t map_traverse_backward (map * map, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
 // Traverse the elements of the map.
 // If the operator `op` is not null, it is applied on the data stored in the map, from the first element to the last (resp. the other way round), as long as the operator `op` returns non-zero.
 // If `op` is null, all the elements are traversed.
-// If the selector `sel` is not null, elements for which `sel (data)` (where `data` is an element previously inserted into the map) returns `0` are ignored. `map_traverse` (resp.`map_traverse_backward`) behaves as if the operator `op` would start with: `if (!sel (data, context)) return 1;`.
-// `context` is passed as the second argument of operator `op` and selector `sel`.
+// If the selector `sel` is not null, elements for which `sel (data)` (where `data` is an element previously inserted into the map) returns `0` are ignored. `map_traverse` (resp.`map_traverse_backward`) behaves as if the operator `op` would start with: `if (!sel (data, sel_arg)) return 1;`.
+// `op_arg` and `sel_arg` are respectively passed as the second argument of operator `op` and selector `sel`.
 // Returns the number of elements of the map that match `sel` (if set) and on which the operator `op` (if set) has been applied.
 // Complexity : n. MT-safe. Non-recursive.
 // > If `op` is null, `map_traverse` and `map_traverse_backward` simply count and return the number of matching elements with the selector `sel` (if set). If `op` and `sel `are null, `map_traverse` and `map_traverse_backward` simply count and return the number of elements.
-// > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `context` argument). Therefore,
+// > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `op_arg` argument). Therefore,
 // elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while traversing elements.
 // > Insertion while traversing should be done with care since an infinite loop will occur if, in `op`, an element is removed and :
 // >
@@ -190,9 +190,9 @@ size_t map_traverse_backward (map * map, map_operator op, map_selector sel, void
 extern map_operator MAP_GET_ONE;
 // > Its use is **not recommended** though. Actions on an element should better be directly integrated in the `map_operator` function.
 // The helper operator `MAP_GET_ONE` retrieves an element found by `map_find_key`, `map_traverse` or `map_traverse_backward`
-// and, if the parameter `context` of `map_find_key`, `map_traverse` or `map_traverse_backward` is a non null pointer,
-// it sets the pointer `context` to the data of this element.
-// `context` **should be** the address of a pointer to type T, where `context` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
+// and, if the parameter `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward` is a non null pointer,
+// it sets the pointer `op_arg` to the data of this element.
+// `op_arg` **should be** the address of a pointer to type T, where `op_arg` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
 // Example: to get the last element, use `T *data = 0; if (map_traverse_backward (m, MAP_GET_ONE, 0, &data)) { ... }`
 
 // #### Map operator to retrieve and remove one element
@@ -200,9 +200,9 @@ extern map_operator MAP_GET_ONE;
 extern map_operator MAP_REMOVE_ONE;
 // > Its use is **not recommended** though. Actions on an element should better be directly integrated in the `map_operator` function.
 // The helper operator `MAP_REMOVE_ONE` removes and retrieves an element found by `map_find_key`, `map_traverse` or `map_traverse_backward`
-// and, if the parameter `context` of `map_find_key`, `map_traverse` or `map_traverse_backward` is a non null pointer,
-// it sets the pointer `context` to the data of this element.
-// `context` **should be** `0` or the address of a pointer to type T, where `context` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
+// and, if the parameter `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward` is a non null pointer,
+// it sets the pointer `op_arg` to the data of this element.
+// `op_arg` **should be** `0` or the address of a pointer to type T, where `op_arg` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
 /* Example
 
 If `m` is a map of elements of type T and `sel` a map_selector, the following piece of code will remove and retrieve the data of the first element selected by `sel`:
@@ -220,11 +220,11 @@ If `m` is a map of elements of type T and `sel` a map_selector, the following pi
 // #### Map operator to remove all elements
 // This map operator removes all the element from the map.
 extern map_operator MAP_REMOVE_ALL;
-// the parameter `context` of `map_find_key`, `map_traverse` or `map_traverse_backward` should be `0` or a pointer to a destructor function with signature `void (*)(void * ptr)` (such as `free`).
+// the parameter `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward` should be `0` or a pointer to a destructor function with signature `void (*)(void * ptr)` (such as `free`).
 // This destructor is applied to each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward`.
 
 // #### Map operator to move elements from one map to another
-// This map operator moves each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward` to another **different** map passed in the argument `context` of `map_find_key`, `map_traverse` or `map_traverse_backward`.
+// This map operator moves each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward` to another **different** map passed in the argument `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward`.
 // N.B.: A destination map identical to the source map would **deadly lock** the calling thread.
 extern map_operator MAP_MOVE_TO;
 

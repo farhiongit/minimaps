@@ -374,7 +374,7 @@ _map_remove (struct map_elem *old)
 }
 
 static size_t
-_map_traverse (map *m, map_operator op, map_selector sel, void *context, int backward)
+_map_traverse (map *m, map_operator op, void *op_arg, map_selector sel, void *sel_arg, int backward)
 {
   if (!m)
   {
@@ -388,10 +388,10 @@ _map_traverse (map *m, map_operator op, map_selector sel, void *context, int bac
   {
     int remove = 0;
     int go_on = 1;
-    if (!sel || sel (e->data, context))
+    if (!sel || sel (e->data, sel_arg))
     {
       if (op)
-        go_on = op (e->data, context, &remove);
+        go_on = op (e->data, op_arg, &remove);
       nb_op++;
     }
     struct map_elem *n = backward ? e->previous : e->next;
@@ -407,15 +407,15 @@ _map_traverse (map *m, map_operator op, map_selector sel, void *context, int bac
 }
 
 size_t
-map_traverse (map *m, map_operator op, map_selector sel, void *context)
+map_traverse (map *m, map_operator op, void *op_arg, map_selector sel, void *sel_arg)
 {
-  return _map_traverse (m, op, sel, context, 0);
+  return _map_traverse (m, op, op_arg, sel, sel_arg, 0);
 }
 
 size_t
-map_traverse_backward (map *m, map_operator op, map_selector sel, void *context)
+map_traverse_backward (map *m, map_operator op, void *op_arg, map_selector sel, void *sel_arg)
 {
-  return _map_traverse (m, op, sel, context, 1);
+  return _map_traverse (m, op, op_arg, sel, sel_arg, 1);
 }
 
 size_t

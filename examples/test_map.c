@@ -86,64 +86,64 @@ test1 (void)
     fprintf (stdout, "%lu elements.\n", map_size (li));
     map_display (li, stderr, tostring);
 
-    map_traverse (li, print_data, 0, 0);
+    map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
-    map_traverse_backward (li, print_data, 0, 0);
+    map_traverse_backward (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
     char c = 'c';
-    map_traverse (li, print_data, select_start_with_c, &c);
+    map_traverse (li, print_data, 0, select_start_with_c, &c);
     fprintf (stdout, "\n");
 
     char *data = 0;
-    if (map_traverse (li, MAP_REMOVE_ONE, 0, &data) && data)    // Remove the first found element from the map.
+    if (map_traverse (li, MAP_REMOVE_ONE, &data, 0, 0) && data) // Remove the first found element from the map.
     {
       fprintf (stdout, "%s <-- ", data);
-      map_traverse (li, print_data, 0, 0);
+      map_traverse (li, print_data, 0, 0, 0);
       fprintf (stdout, "<-- %s\n", data);
       map_insert_data (li, data);       // Reinsert after use.
-      map_traverse (li, print_data, 0, 0);
+      map_traverse (li, print_data, 0, 0, 0);
       fprintf (stdout, "\n");
     }
 
     map_insert_data (li, "r");
-    map_traverse (li, print_data, 0, 0);
+    map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
     map *lj = map_create (0, 0, 0, 0);
     map_find_key (li, "r", MAP_MOVE_TO, lj);
-    map_traverse (li, print_data, 0, 0);
+    map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
-    map_traverse (lj, print_data, 0, 0);
+    map_traverse (lj, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
-    map_traverse (lj, MAP_REMOVE_ALL, 0, 0);
+    map_traverse (lj, MAP_REMOVE_ALL, 0, 0, 0);
     map_destroy (lj);
 
     map_find_key (li, "c", MAP_REMOVE_ALL, 0);
-    map_traverse (li, print_data, 0, 0);
+    map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
     fprintf (stdout, "%lu elements.\n", map_size (li));
 
-    map_traverse (li, MAP_REMOVE_ONE, 0, 0);
-    map_traverse (li, print_data, 0, 0);
+    map_traverse (li, MAP_REMOVE_ONE, 0, 0, 0);
+    map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
 
     map_find_key (li, "b", MAP_REMOVE_ONE, 0);
-    map_traverse (li, print_data, 0, 0);
+    map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
 
     map_find_key (li, "d", MAP_REMOVE_ONE, 0);
-    map_traverse (li, print_data, 0, 0);
+    map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
 
-    map_traverse_backward (li, MAP_REMOVE_ONE, 0, 0);
-    map_traverse (li, print_data, 0, 0);
+    map_traverse_backward (li, MAP_REMOVE_ONE, 0, 0, 0);
+    map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
 
-    map_traverse (li, MAP_REMOVE_ONE, 0, 0);
-    map_traverse (li, print_data, 0, 0);
+    map_traverse (li, MAP_REMOVE_ONE, 0, 0, 0);
+    map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
 
-    map_traverse (li, MAP_REMOVE_ALL, 0, 0);
-    map_traverse (li, print_data, 0, 0);
+    map_traverse (li, MAP_REMOVE_ALL, 0, 0, 0);
+    map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
     fprintf (stdout, "%lu elements.\n", map_size (li));
     map_destroy (li);
@@ -235,32 +235,32 @@ test2 (void)
     *pi = rand () % 39 + 11;
     map_insert_data (li, pi);
   }
-  map_traverse (li, print_pi, 0, 0);
+  map_traverse (li, print_pi, 0, 0, 0);
   fprintf (stdout, "\n");
-  map_traverse (li, apply, 0, dec);
-  map_traverse (li, print_pi, 0, 0);
+  map_traverse (li, apply, dec, 0, 0);
+  map_traverse (li, print_pi, 0, 0, 0);
   fprintf (stdout, "\n");
-  map_traverse (li, apply, 0, dbl);
-  map_traverse (li, print_pi, 0, 0);
+  map_traverse (li, apply, dbl, 0, 0);
+  map_traverse (li, print_pi, 0, 0, 0);
   fprintf (stdout, "\n");
   struct rai_args args;
   args = (struct rai_args)
   { nop, li };
-  map_traverse_backward (li, remove_apply_insert, 0, &args);
-  map_traverse (li, print_pi, 0, 0);
+  map_traverse_backward (li, remove_apply_insert, &args, 0, 0);
+  map_traverse (li, print_pi, 0, 0, 0);
   fprintf (stdout, "\n");
   args = (struct rai_args)
   { dec, li };
-  map_traverse (li, remove_apply_insert, 0, &args);
-  map_traverse (li, print_pi, 0, 0);
+  map_traverse (li, remove_apply_insert, &args, 0, 0);
+  map_traverse (li, print_pi, 0, 0, 0);
   fprintf (stdout, "\n");
   args = (struct rai_args)
   { dbl, li };
-  map_traverse (li, remove_apply_insert, 0, &args);     // Integers are removed, doubled and pushed back forward into the ordered list and traversed repeatedly, till they overflow to lower negative numbers (and are therefore pushed backward).
-  map_traverse (li, print_pi, 0, 0);
+  map_traverse (li, remove_apply_insert, &args, 0, 0);  // Integers are removed, doubled and pushed back forward into the ordered list and traversed repeatedly, till they overflow to lower negative numbers (and are therefore pushed backward).
+  map_traverse (li, print_pi, 0, 0, 0);
   fprintf (stdout, "\n");
-  map_traverse (li, MAP_REMOVE_ALL, 0, free);
-  map_traverse (li, print_pi, 0, 0);
+  map_traverse (li, MAP_REMOVE_ALL, free, 0, 0);
+  map_traverse (li, print_pi, 0, 0, 0);
   fprintf (stdout, "\n");
   map_destroy (li);
 }
@@ -328,15 +328,15 @@ test3 (void)
                    {"Orange", ADJECTIVE}, NONE, "Colour"
                    });
   fprintf (stdout, "%lu element(s).\n", map_size (dictionary));
-  fprintf (stdout, "%lu element(s).\n", map_traverse (dictionary, 0, 0, 0));
-  fprintf (stdout, "%lu element(s) found.\n", map_traverse (dictionary, 0, sel_noun_masculine, 0));
+  fprintf (stdout, "%lu element(s).\n", map_traverse (dictionary, 0, 0, 0, 0));
+  fprintf (stdout, "%lu element(s) found.\n", map_traverse (dictionary, 0, 0, sel_noun_masculine, 0));
   fprintf (stdout, "%lu element(s) found.\n", map_find_key (dictionary, &(struct word)
                                                             { "Orange", NOUN }, 0, 0));
   fprintf (stdout, "%lu element(s) found.\n", map_find_key (dictionary, &(struct word)
                                                             { "Orange", ADJECTIVE }, 0, 0));
   fprintf (stdout, "%lu element(s) found.\n", map_find_key (dictionary, &(struct word)
                                                             { "Orange", VERB }, 0, 0));
-  map_traverse (dictionary, MAP_REMOVE_ALL, 0, 0);
+  map_traverse (dictionary, MAP_REMOVE_ALL, 0, 0, 0);
   map_destroy (dictionary);
 }
 
@@ -401,7 +401,7 @@ test4 (void)
   map_display (dictionary, stderr, 0);
   fprintf (stdout, "%lu element(s) checked.\n", map_find_key (dictionary, &l, match, pattern));
   fprintf (stdout, "%lu element(s).\n", map_size (dictionary));
-  map_traverse (dictionary, MAP_REMOVE_ALL, 0, 0);
+  map_traverse (dictionary, MAP_REMOVE_ALL, 0, 0, 0);
   map_destroy (dictionary);
 }
 
@@ -426,15 +426,15 @@ test5 (void)
     map_insert_data (ints, pi);
   }
   map_display (ints, stderr, toint);
-  map_traverse (ints, print_pi, 0, 0);
+  map_traverse (ints, print_pi, 0, 0, 0);
   fprintf (stdout, "\n");
 
-  map_traverse (ints, MAP_REMOVE_ALL, select_random, free);
+  map_traverse (ints, MAP_REMOVE_ALL, free, select_random, 0);
   map_display (ints, stderr, toint);
-  map_traverse (ints, print_pi, 0, 0);
+  map_traverse (ints, print_pi, 0, 0, 0);
   fprintf (stdout, "\n");
 
-  map_traverse (ints, MAP_REMOVE_ALL, 0, free);
+  map_traverse (ints, MAP_REMOVE_ALL, free, 0, 0);
   map_destroy (ints);
 }
 

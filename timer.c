@@ -56,15 +56,15 @@ Timers_add (struct timespec timeout, void (*callback) (void *arg), void *arg)
 }
 
 static int
-timer_by_id (const void *data, void *context)
+timer_by_id (const void *data, void *timer)
 {
-  return data == *(void **) context;
+  return data == timer;
 }
 
 static void
 Timers_rm (void *timer)
 {
-  if (map_traverse (Timers.map, MAP_REMOVE_ONE, timer_by_id, &timer))
+  if (map_traverse (Timers.map, MAP_REMOVE_ONE, &timer, timer_by_id, timer))
   {
     free (timer);
     cnd_broadcast (&Timers.condition);
@@ -78,7 +78,7 @@ Timers_loop (void *)
   while (!Timers.stop)
   {
     struct timer_elem *earliest = 0;
-    map_traverse (Timers.map, MAP_REMOVE_ONE, 0, &earliest);
+    map_traverse (Timers.map, MAP_REMOVE_ONE, &earliest, 0, 0);
     if (!earliest)
       cnd_wait (&Timers.condition, &Timers.mutex);
     else if (cnd_timedwait (&Timers.condition, &Timers.mutex, &earliest->timeout) != thrd_timedout)
@@ -100,7 +100,7 @@ Timers_clear (void)
   Timers.stop = 1;
   cnd_broadcast (&Timers.condition);
   thrd_join (Timers.thread, 0);
-  map_traverse (Timers.map, MAP_REMOVE_ALL, 0, free);
+  map_traverse (Timers.map, MAP_REMOVE_ALL, free, 0, 0);
   map_destroy (Timers.map);
   cnd_destroy (&Timers.condition);
   mtx_destroy (&Timers.mutex);
