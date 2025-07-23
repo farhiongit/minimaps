@@ -58,7 +58,7 @@ map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *arg, in
   l->arg = arg;
   // mtx_recursive : the SAME thread can lock (and unlock) the mutex several times. See https://en.wikipedia.org/wiki/Reentrant_mutex for more.
   // Therefore, map_find_key, map_traverse, map_traverse_backward and map_insert_data can call each other.
-  if (mtx_init (&l->mutex, mtx_recursive) != thrd_success)
+  if (mtx_init (&l->mutex, mtx_plain | mtx_recursive) != thrd_success)
   {
     free (l);
     errno = ENOMEM;

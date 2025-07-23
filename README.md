@@ -124,7 +124,7 @@ The type of a user-defined function that selects elements while traversing a map
 The data of the element of the map is passed as the first argument of the map_selector.
 
 
-The second argument `sel_arg` receives the pointer passed to `map_traverse` and `map_traverse_backward` (as last argument).
+The second argument `sel_arg` receives the pointer passed to `map_traverse` and `map_traverse_backward`.
 
 
 Should return `1` if the `data` conforms to the user-defined conditions (and should be selected by `map_traverse` or `map_traverse_backward`), `0` otherwise.
@@ -143,7 +143,7 @@ picked by `map_traverse`, `map_traverse_backward` or `map_find_key`.
 The data of the element of the map is passed as the first argument of the `map_operator`.
 
 
-The second argument `op_arg` receives the pointer passed to `map_traverse`, `map_traverse_backward` and `map_find_key` (as last argument).
+The second argument `op_arg` receives the pointer passed to `map_traverse`, `map_traverse_backward` and `map_find_key`.
 
 
 The third argument `remove` receives a non-null pointer for which `*remove` is set to `0`.
