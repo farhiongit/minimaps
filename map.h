@@ -167,12 +167,13 @@ size_t map_traverse (map * map, map_operator op, void *op_arg, map_selector sel,
 size_t map_traverse_backward (map * map, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
 // Traverse the elements of the map.
 // If the operator `op` is not null, it is applied on the data stored in the map, from the first element to the last (resp. the other way round), as long as the operator `op` returns non-zero.
-// If `op` is null, all the elements are traversed.
+// If `op` is null, all the elements are traversed without any further effect than counting the elements selected by `sel`.
 // If the selector `sel` is not null, elements for which `sel (data)` (where `data` is an element previously inserted into the map) returns `0` are ignored. `map_traverse` (resp.`map_traverse_backward`) behaves as if the operator `op` would start with: `if (!sel (data, sel_arg)) return 1;`.
-// `op_arg` and `sel_arg` are respectively passed as the second argument of operator `op` and selector `sel`.
+// `op_arg` and `sel_arg` are respectively passed as the second argument of operator `op` and selector `sel`. For instance,
+// `op_arg` could be used as a pointer to an aggregator of an aggregating function `op`.
 // Returns the number of elements of the map that match `sel` (if set) and on which the operator `op` (if set) has been applied.
 // Complexity : n. MT-safe. Non-recursive.
-// > If `op` is null, `map_traverse` and `map_traverse_backward` simply count and return the number of matching elements with the selector `sel` (if set). If `op` and `sel `are null, `map_traverse` and `map_traverse_backward` simply count and return the number of elements.
+// > If `op` is null, `map_traverse` and `map_traverse_backward` simply count and return the number of matching elements with the selector `sel` (if set). If `op` and `sel `are null, `map_traverse` and `map_traverse_backward` simply count and return the number of elements in the map.
 // > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `op_arg` argument). Therefore,
 // elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while traversing elements.
 // > Insertion while traversing should be done with care since an infinite loop will occur if, in `op`, an element is removed and :
@@ -218,9 +219,9 @@ If `m` is a map of elements of type T and `sel` a map_selector, the following pi
 */
 
 // #### Map operator to remove all elements
-// This map operator removes all the element from the map.
+// This map operator removes all the selected element from the map.
 extern map_operator MAP_REMOVE_ALL;
-// the parameter `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward` should be `0` or a pointer to a destructor function with signature `void (*)(void * ptr)` (such as `free`).
+// The parameter `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward` should be `0` or a pointer to a destructor function with signature `void (*)(void * ptr)` (such as `free`).
 // This destructor is applied to each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward`.
 
 // #### Map operator to move elements from one map to another
