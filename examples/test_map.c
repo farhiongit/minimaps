@@ -416,9 +416,9 @@ select_random (const void *data, void *res)
 static int
 sum_squares (void *data, void *op_arg, int *)
 {
-  unsigned int *sum_of_squares = op_arg;
+  int *sum_of_squares = op_arg;
   int *pi = data;
-  *sum_of_squares += (unsigned int) (*pi * *pi);
+  *sum_of_squares += *pi * *pi;
   return 1;
 }
 
@@ -438,9 +438,9 @@ test5 (void)
   map_traverse (ints, print_pi, 0, 0, 0);
   fprintf (stdout, "\n");
 
-  unsigned int sum_of_squares = 0;
+  int sum_of_squares = 0;
   map_traverse (ints, sum_squares, &sum_of_squares, 0, 0);
-  fprintf (stdout, "%u\n", sum_of_squares);
+  fprintf (stdout, "%i\n", sum_of_squares);
 
   map_traverse (ints, MAP_REMOVE_ALL, free, select_random, 0);
   map_display (ints, stderr, toint);
