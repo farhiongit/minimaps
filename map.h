@@ -5,6 +5,7 @@
 // Language: C (C11 or higher).
 
 /* This library manages sorted maps, sorted sets, sorted and unsorted lists, FIFO and LIFO queues (depending on how the "map" is created).
+   It uses a balanced binary tree for blazing fast insertion and removal (O(log n)) and a double-linked list for fast traversing (O(n)).
    The interface has only 7 functions to do everything (create, read, update, insert, remove, destroy):
 
 - `map_create`
@@ -141,6 +142,9 @@ size_t map_size (map *);
 // Returns the number of elements in a map.
 // Note: if the map is used by several threads, `map_size` should better not be used since the size of the map can be modified any time by other threads.
 // Complexity : 1. MT-safe.
+
+// ### Retrieve the height of the balanced binary tree of a map
+size_t map_height (map *);
 
 // ### Add an element into a map
 int map_insert_data (map *, void *data);

@@ -19,5 +19,5 @@ main (void)
   void *timer2s = timer_set (delay_to_abs_timespec (TWO), hello, &TWO);
   timer_unset (timer1s);
   (void) timer2s;
-  sleep (3);
+  sleep (3);                    // Keep the program alive until the timer has timed out.
 }

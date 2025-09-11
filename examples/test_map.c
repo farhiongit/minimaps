@@ -83,7 +83,6 @@ test1 (void)
     map_insert_data (li, "cc");
     map_insert_data (li, "d");
     map_insert_data (li, "ba");
-    fprintf (stdout, "%lu elements.\n", map_size (li));
     map_display (li, stderr, tostring);
 
     map_traverse (li, print_data, 0, 0, 0);
@@ -97,10 +96,13 @@ test1 (void)
     char *data = 0;
     if (map_traverse (li, MAP_REMOVE_ONE, &data, 0, 0) && data) // Remove the first found element from the map.
     {
+      map_display (li, stderr, tostring);
       fprintf (stdout, "%s <-- ", data);
+      fflush (stdout);
       map_traverse (li, print_data, 0, 0, 0);
       fprintf (stdout, "<-- %s\n", data);
       map_insert_data (li, data);       // Reinsert after use.
+      map_display (li, stderr, tostring);
       map_traverse (li, print_data, 0, 0, 0);
       fprintf (stdout, "\n");
     }
@@ -117,7 +119,9 @@ test1 (void)
     map_traverse (lj, MAP_REMOVE_ALL, 0, 0, 0);
     map_destroy (lj);
 
+    map_display (li, stderr, tostring);
     map_find_key (li, "c", MAP_REMOVE_ALL, 0);
+    map_display (li, stderr, tostring);
     map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
     fprintf (stdout, "%lu elements.\n", map_size (li));
@@ -441,6 +445,11 @@ test5 (void)
   int sum_of_squares = 0;
   map_traverse (ints, sum_squares, &sum_of_squares, 0, 0);
   fprintf (stdout, "%i\n", sum_of_squares);
+  map_display (ints, stderr, toint);
+  map_traverse (ints, print_pi, 0, 0, 0);
+  fprintf (stdout, "\n");
+  map_traverse (ints, print_pi, 0, select_random, 0);
+  fprintf (stdout, "\n");
 
   map_traverse (ints, MAP_REMOVE_ALL, free, select_random, 0);
   map_display (ints, stderr, toint);
@@ -448,6 +457,36 @@ test5 (void)
   fprintf (stdout, "\n");
 
   map_traverse (ints, MAP_REMOVE_ALL, free, 0, 0);
+  map_destroy (ints);
+}
+
+static void
+test6 (void)
+{
+#undef map_insert_data
+#undef map_traverse
+#undef map_traverse_backward
+  static const size_t NB = 10 * 1000 * 1000;
+  puts ("============================================================");
+  map *ints = map_create (0, cmpip, 0, 0);
+  for (size_t i = 0; i < NB; i++)
+  {
+    int *pi = malloc (sizeof (*pi));
+    *pi = (int) i;
+    map_insert_data (ints, pi);
+  }
+  fprintf (stdout, "%lu element(s), height %lu.\n", map_size (ints), map_height (ints));
+  int sum_of_squares = 0;
+  map_traverse (ints, sum_squares, &sum_of_squares, 0, 0);
+  for (size_t i = 0; i < NB / 2; i++)
+  {
+    int *pi;
+    map_traverse (ints, MAP_REMOVE_ONE, &pi, 0, 0);
+    free (pi);
+  }
+  fprintf (stdout, "%lu element(s), height %lu.\n", map_size (ints), map_height (ints));
+  map_traverse (ints, MAP_REMOVE_ALL, free, 0, 0);
+  fprintf (stdout, "%lu element(s), height %lu.\n", map_size (ints), map_height (ints));
   map_destroy (ints);
 }
 
@@ -460,4 +499,5 @@ main (void)
   test3 ();
   test4 ();
   test5 ();
+  test6 ();
 }
