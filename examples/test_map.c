@@ -8,6 +8,8 @@
 #include <threads.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
+#include <locale.h>
 #include "map.h"
 #include "trace.h"
 #if 1
@@ -463,36 +465,61 @@ test5 (void)
 static void
 test6 (void)
 {
+#undef map_create
+#undef map_destroy
 #undef map_insert_data
 #undef map_traverse
 #undef map_traverse_backward
+#undef map_size
+#undef map_height
   static const size_t NB = 10 * 1000 * 1000;
   puts ("============================================================");
+  struct timespec ts0, ts;
+  timespec_get (&ts0, TIME_UTC);
+  fprintf (stdout, "Create map...\n");
   map *ints = map_create (0, cmpip, 0, 0);
+  timespec_get (&ts, TIME_UTC);
+  fprintf (stdout, "[%.Lf ms] %'zu element(s), height %zu.\n", 1000.L * difftime (ts.tv_sec, ts0.tv_sec) + (ts.tv_nsec - ts0.tv_nsec) / 1000000.L,
+           map_size (ints), map_height (ints));
+  fprintf (stdout, "Insert %'zu sorted elements...\n", NB);
   for (size_t i = 0; i < NB; i++)
   {
     int *pi = malloc (sizeof (*pi));
     *pi = (int) i;
     map_insert_data (ints, pi);
   }
-  fprintf (stdout, "%lu element(s), height %lu.\n", map_size (ints), map_height (ints));
+  timespec_get (&ts, TIME_UTC);
+  fprintf (stdout, "[%.Lf ms] %'zu element(s), height %zu.\n", 1000.L * difftime (ts.tv_sec, ts0.tv_sec) + (ts.tv_nsec - ts0.tv_nsec) / 1000000.L,
+           map_size (ints), map_height (ints));
+  fprintf (stdout, "Traverse map...\n");
   int sum_of_squares = 0;
   map_traverse (ints, sum_squares, &sum_of_squares, 0, 0);
+  timespec_get (&ts, TIME_UTC);
+  fprintf (stdout, "[%.Lf ms] %'zu element(s), height %zu.\n", 1000.L * difftime (ts.tv_sec, ts0.tv_sec) + (ts.tv_nsec - ts0.tv_nsec) / 1000000.L,
+           map_size (ints), map_height (ints));
+  fprintf (stdout, "Remove the first %'zu elements, one by one...\n", NB / 2);
   for (size_t i = 0; i < NB / 2; i++)
   {
     int *pi;
     map_traverse (ints, MAP_REMOVE_ONE, &pi, 0, 0);
     free (pi);
   }
-  fprintf (stdout, "%lu element(s), height %lu.\n", map_size (ints), map_height (ints));
+  timespec_get (&ts, TIME_UTC);
+  fprintf (stdout, "[%.Lf ms] %'zu element(s), height %zu.\n", 1000.L * difftime (ts.tv_sec, ts0.tv_sec) + (ts.tv_nsec - ts0.tv_nsec) / 1000000.L,
+           map_size (ints), map_height (ints));
+  fprintf (stdout, "Remove all remaining %'zu elements...\n", NB - NB / 2);
   map_traverse (ints, MAP_REMOVE_ALL, free, 0, 0);
-  fprintf (stdout, "%lu element(s), height %lu.\n", map_size (ints), map_height (ints));
+  timespec_get (&ts, TIME_UTC);
+  fprintf (stdout, "[%.Lf ms] %'zu element(s), height %zu.\n", 1000.L * difftime (ts.tv_sec, ts0.tv_sec) + (ts.tv_nsec - ts0.tv_nsec) / 1000000.L,
+           map_size (ints), map_height (ints));
+  fprintf (stdout, "Destroy empty map...\n");
   map_destroy (ints);
 }
 
 int
 main (void)
 {
+  setlocale (LC_ALL, "");
   srand ((unsigned int) time (0));
   test1 ();
   test2 ();
