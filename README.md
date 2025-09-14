@@ -10,7 +10,7 @@ Language: C (C11 or higher).
 This library manages sorted maps, sorted sets, sorted and unsorted lists, FIFO and LIFO queues (depending on how the "map" is created).
 
 
-  It uses a balanced binary tree for blazing fast insertion and removal (O(log n)) and a double-linked list for fast traversing (O(n)).
+  It uses a balanced binary tree for blazing fast insertion and removal (O(log n)) and a doubly-linked list for fast traversing (O(n)).
 
 
   The interface has only 7 functions to do everything (create, read, update, insert, remove, destroy):
