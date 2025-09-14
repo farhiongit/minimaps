@@ -217,7 +217,7 @@ remove_apply_insert (void *data, void *res, int *remove)
 static void
 toint (FILE *stream, const void *data)
 {
-  fprintf (stream, "%i", *(const int *) data);
+  fprintf (stream, "%'i", *(const int *) data);
 }
 
 static int
@@ -239,7 +239,9 @@ test2 (void)
   {
     int *pi = malloc (sizeof (*pi));
     *pi = rand () % 39 + 11;
+    fprintf (stdout, "Insert %i...\n", *pi);
     map_insert_data (li, pi);
+    map_display (li, stdout, toint);
   }
   map_traverse (li, print_pi, 0, 0, 0);
   fprintf (stdout, "\n");
@@ -254,6 +256,8 @@ test2 (void)
   { nop, li };
   map_traverse_backward (li, remove_apply_insert, &args, 0, 0);
   map_traverse (li, print_pi, 0, 0, 0);
+  fprintf (stdout, "\n");
+  map_traverse_backward (li, print_pi, 0, 0, 0);
   fprintf (stdout, "\n");
   args = (struct rai_args)
   { dec, li };
@@ -472,48 +476,68 @@ test6 (void)
 #undef map_traverse_backward
 #undef map_size
 #undef map_height
-  static const size_t NB = 10 * 1000 * 1000;
-  puts ("============================================================");
-  struct timespec ts0, ts;
-  timespec_get (&ts0, TIME_UTC);
-  fprintf (stdout, "Create map...\n");
-  map *ints = map_create (0, cmpip, 0, 0);
-  timespec_get (&ts, TIME_UTC);
-  fprintf (stdout, "[%.Lf ms] %'zu element(s), height %zu.\n", 1000.L * difftime (ts.tv_sec, ts0.tv_sec) + (ts.tv_nsec - ts0.tv_nsec) / 1000000.L,
-           map_size (ints), map_height (ints));
-  fprintf (stdout, "Insert %'zu sorted elements...\n", NB);
-  for (size_t i = 0; i < NB; i++)
-  {
-    int *pi = malloc (sizeof (*pi));
-    *pi = (int) i;
-    map_insert_data (ints, pi);
-  }
-  timespec_get (&ts, TIME_UTC);
-  fprintf (stdout, "[%.Lf ms] %'zu element(s), height %zu.\n", 1000.L * difftime (ts.tv_sec, ts0.tv_sec) + (ts.tv_nsec - ts0.tv_nsec) / 1000000.L,
-           map_size (ints), map_height (ints));
-  fprintf (stdout, "Traverse map...\n");
-  int sum_of_squares = 0;
-  map_traverse (ints, sum_squares, &sum_of_squares, 0, 0);
-  timespec_get (&ts, TIME_UTC);
-  fprintf (stdout, "[%.Lf ms] %'zu element(s), height %zu.\n", 1000.L * difftime (ts.tv_sec, ts0.tv_sec) + (ts.tv_nsec - ts0.tv_nsec) / 1000000.L,
-           map_size (ints), map_height (ints));
-  fprintf (stdout, "Remove the first %'zu elements, one by one...\n", NB / 2);
-  for (size_t i = 0; i < NB / 2; i++)
-  {
-    int *pi;
-    map_traverse (ints, MAP_REMOVE_ONE, &pi, 0, 0);
-    free (pi);
-  }
-  timespec_get (&ts, TIME_UTC);
-  fprintf (stdout, "[%.Lf ms] %'zu element(s), height %zu.\n", 1000.L * difftime (ts.tv_sec, ts0.tv_sec) + (ts.tv_nsec - ts0.tv_nsec) / 1000000.L,
-           map_size (ints), map_height (ints));
-  fprintf (stdout, "Remove all remaining %'zu elements...\n", NB - NB / 2);
-  map_traverse (ints, MAP_REMOVE_ALL, free, 0, 0);
-  timespec_get (&ts, TIME_UTC);
-  fprintf (stdout, "[%.Lf ms] %'zu element(s), height %zu.\n", 1000.L * difftime (ts.tv_sec, ts0.tv_sec) + (ts.tv_nsec - ts0.tv_nsec) / 1000000.L,
-           map_size (ints), map_height (ints));
-  fprintf (stdout, "Destroy empty map...\n");
-  map_destroy (ints);
+#define log(ints, ts0) \
+  do { \
+    struct timespec ts; timespec_get (&ts, TIME_UTC);  \
+    fprintf (stdout, "[%'.Lf ms] %'zu element(s), height %zu [%'zu].\n", 1000.L * difftime (ts.tv_sec, ts0.tv_sec) + (ts.tv_nsec - ts0.tv_nsec) / 1000000.L,  \
+             map_size (ints), map_height (ints), map_nb_balancing (ints));  \
+  } while (0)
+  static const size_t NBs[] = { 64, 100, 1024, 1000 * 1000, 1024 * 1024, 8 * 1024 * 1024, 10 * 1000 * 1000 };
+  for (size_t j = 0; j < sizeof (NBs) / sizeof (*NBs); j++)
+    for (int k = 1; k <= 3; k++)
+    {
+      puts ("============================================================");
+      size_t NB = NBs[j];
+      struct timespec ts0;
+      timespec_get (&ts0, TIME_UTC);
+      fprintf (stdout, "Create map...\n");
+      map *ints = map_create (0, cmpip, 0, 1);  // Unicity
+      log (ints, ts0);
+      fprintf (stdout, "Insert %'zu %s elements...\n", NB, k == 1 ? "randomised" : k == 2 ? "sorted" : "even");
+      if (k == 1)
+        for (size_t i = 0; i < NB; i++)
+        {
+          int *pi = malloc (sizeof (*pi));
+          do
+            *pi = rand ();
+          while (!map_insert_data (ints, pi));
+        }
+      else if (k == 2)
+        for (size_t i = 0; i < NB; i++)
+        {
+          int *pi = malloc (sizeof (*pi));
+          *pi = (int) i;
+          map_insert_data (ints, pi);
+        }
+      else if (k == 3)
+        for (size_t step = NB / 2; step; step /= 2)
+          for (size_t i = step; i < NB; i += step)
+          {
+            int *pi = malloc (sizeof (*pi));
+            *pi = (int) i;
+            if (!map_insert_data (ints, pi))
+              free (pi);
+          }
+      log (ints, ts0);
+      fprintf (stdout, "Traverse map...\n");
+      int sum_of_squares = 0;
+      map_traverse (ints, sum_squares, &sum_of_squares, 0, 0);
+      log (ints, ts0);
+      fprintf (stdout, "Remove the first %'zu elements, one by one...\n", map_size (ints) / 2);
+      for (size_t i = map_size (ints) / 2; i > 0; i--)
+      {
+        int *pi = 0;
+        map_traverse (ints, MAP_REMOVE_ONE, &pi, 0, 0);
+        free (pi);
+      }
+      log (ints, ts0);
+      fprintf (stdout, "Remove all remaining %'zu elements...\n", map_size (ints));
+      map_traverse (ints, MAP_REMOVE_ALL, free, 0, 0);
+      log (ints, ts0);
+      fprintf (stdout, "Destroy empty map...\n");
+      map_destroy (ints);
+    }                           // for (int k = 1; k <= 2; k++)
+  // for (size_t j = 0; j < sizeof (NBs) / sizeof (*NBs); j++)
 }
 
 int

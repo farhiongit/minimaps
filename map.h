@@ -5,7 +5,7 @@
 // Language: C (C11 or higher).
 
 /* This library manages sorted maps, sorted sets, sorted and unsorted lists, FIFO and LIFO queues (depending on how the "map" is created).
-   It uses a balanced binary tree for blazing fast insertion and removal (O(log n)) and a double-linked list for fast traversing (O(n)).
+   It uses a balanced binary tree for blazing fast insertion and removal (O(log n)) and a doubly-linked list for fast traversing (O(n)).
    The interface has only 7 functions to do everything (create, read, update, insert, remove, destroy):
 
 - `map_create`
@@ -143,8 +143,11 @@ size_t map_size (map *);
 // Note: if the map is used by several threads, `map_size` should better not be used since the size of the map can be modified any time by other threads.
 // Complexity : 1. MT-safe.
 
-// ### Retrieve the height of the balanced binary tree of a map
+// ### Retrieve some internals of the balanced binary tree of a map
+// For logging purpose only.
 size_t map_height (map *);
+
+size_t map_nb_balancing (map * m);
 
 // ### Add an element into a map
 int map_insert_data (map *, void *data);
@@ -180,10 +183,10 @@ size_t map_traverse_backward (map * map, map_operator op, void *op_arg, map_sele
 // > If `op` is null, `map_traverse` and `map_traverse_backward` simply count and return the number of matching elements with the selector `sel` (if set). If `op` and `sel `are null, `map_traverse` and `map_traverse_backward` simply count and return the number of elements in the map.
 // > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `op_arg` argument). Therefore,
 // elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while traversing elements.
-// > Insertion while traversing should be done with care since an infinite loop will occur if, in `op`, an element is removed and :
+// > Insertion while traversing should be done with care since an infinite loop will occur if, in `op`:
 // >
-// >  - while traversing forward, at least an equal or greater element is inserted ;
-// >  - while traversing backward, at least a lower element is inserted.
+// >  - while traversing forward: at least an equal or greater element is inserted ;
+// >  - while traversing backward: at least a lower element is inserted.
 
 // ### Predefined operators for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
 
@@ -192,7 +195,7 @@ size_t map_traverse_backward (map * map, map_operator op, void *op_arg, map_sele
 
 // #### Map operator to retrieve one element
 // This map operator simply retrieves one element from the map.
-extern map_operator MAP_GET_ONE;
+extern const map_operator MAP_GET_ONE;
 // > Its use is **not recommended** though. Actions on an element should better be directly integrated in the `map_operator` function.
 // The helper operator `MAP_GET_ONE` retrieves an element found by `map_find_key`, `map_traverse` or `map_traverse_backward`
 // and, if the parameter `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward` is a non null pointer,
@@ -202,17 +205,17 @@ extern map_operator MAP_GET_ONE;
 
 // #### Map operator to retrieve and remove one element
 // This map operator simply retrieves and removes one element from the map.
-extern map_operator MAP_REMOVE_ONE;
+extern const map_operator MAP_REMOVE_ONE;
 // > Its use is **not recommended** though. Actions on an element should better be directly integrated in the `map_operator` function.
 // The helper operator `MAP_REMOVE_ONE` removes and retrieves an element found by `map_find_key`, `map_traverse` or `map_traverse_backward`
 // and, if the parameter `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward` is a non null pointer,
 // it sets the pointer `op_arg` to the data of this element.
-// `op_arg` **should be** `0` or the address of a pointer to type T, where `op_arg` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
+// `op_arg` **should be** `0` or the address of a pointer to type T set to 0, where `op_arg` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
 /* Example
 
 If `m` is a map of elements of type T and `sel` a map_selector, the following piece of code will remove and retrieve the data of the first element selected by `sel`:
 
-  T *data = 0;  // `data` is a *pointer* to the type stored in the map.
+  T *data = 0;  // `data` is a *pointer* to the type stored in the map, set to 0.
   if (map_traverse (m, MAP_REMOVE_ONE, sel, &data) && data)  // A *pointer to the pointer* `data` is passed to map_traverse.
   {
     // `data` can thread-safely be used to work with.
@@ -224,18 +227,19 @@ If `m` is a map of elements of type T and `sel` a map_selector, the following pi
 
 // #### Map operator to remove all elements
 // This map operator removes all the selected element from the map.
-extern map_operator MAP_REMOVE_ALL;
+extern const map_operator MAP_REMOVE_ALL;
 // The parameter `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward` should be `0` or a pointer to a destructor function with signature `void (*)(void * ptr)` (such as `free`).
 // This destructor is applied to each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward`.
 
 // #### Map operator to move elements from one map to another
 // This map operator moves each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward` to another **different** map passed in the argument `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward`.
 // N.B.: A destination map identical to the source map would **deadly lock** the calling thread.
-extern map_operator MAP_MOVE_TO;
+extern const map_operator MAP_MOVE_TO;
 
 // ## For debugging purpose
 #  include <stdio.h>
 #  define map_check(map) map_display ((map), 0, 0)
+extern void (*const SHAPE) (FILE * stream, const void *data);
 struct map *map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
 // For fans only.
 

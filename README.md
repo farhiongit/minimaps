@@ -238,9 +238,15 @@ Note: if the map is used by several threads, `map_size` should better not be use
 Complexity : 1. MT-safe.
 
 
-### Retrieve the height of the balanced binary tree of a map
+### Retrieve some internals of the balanced binary tree of a map
+For logging purpose only.
+
+
 ```c
 size_t map_height (map *);
+```
+```c
+size_t map_nb_balancing (map * m);
 ```
 ### Add an element into a map
 ```c
@@ -321,10 +327,10 @@ Complexity : n. MT-safe. Non-recursive.
 elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while traversing elements.
 
 
-> Insertion while traversing should be done with care since an infinite loop will occur if, in `op`, an element is removed and :
+> Insertion while traversing should be done with care since an infinite loop will occur if, in `op`:
 >
->  - while traversing forward, at least an equal or greater element is inserted ;
->  - while traversing backward, at least a lower element is inserted.
+>  - while traversing forward: at least an equal or greater element is inserted ;
+>  - while traversing backward: at least a lower element is inserted.
 
 
 ### Predefined operators for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
@@ -341,7 +347,7 @@ This map operator simply retrieves one element from the map.
 
 
 ```c
-extern map_operator MAP_GET_ONE;
+extern const map_operator MAP_GET_ONE;
 ```
 > Its use is **not recommended** though. Actions on an element should better be directly integrated in the `map_operator` function.
 
@@ -360,7 +366,7 @@ This map operator simply retrieves and removes one element from the map.
 
 
 ```c
-extern map_operator MAP_REMOVE_ONE;
+extern const map_operator MAP_REMOVE_ONE;
 ```
 > Its use is **not recommended** though. Actions on an element should better be directly integrated in the `map_operator` function.
 
@@ -370,14 +376,14 @@ and, if the parameter `op_arg` of `map_find_key`, `map_traverse` or `map_travers
 it sets the pointer `op_arg` to the data of this element.
 
 
-`op_arg` **should be** `0` or the address of a pointer to type T, where `op_arg` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
+`op_arg` **should be** `0` or the address of a pointer to type T set to 0, where `op_arg` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
 
 
 Example
 
 If `m` is a map of elements of type T and `sel` a map_selector, the following piece of code will remove and retrieve the data of the first element selected by `sel`:
 
-	  T *data = 0;  // `data` is a *pointer* to the type stored in the map.
+	  T *data = 0;  // `data` is a *pointer* to the type stored in the map, set to 0.
 	  if (map_traverse (m, MAP_REMOVE_ONE, sel, &data) && data)  // A *pointer to the pointer* `data` is passed to map_traverse.
 	  {
 	    // `data` can thread-safely be used to work with.
@@ -391,7 +397,7 @@ This map operator removes all the selected element from the map.
 
 
 ```c
-extern map_operator MAP_REMOVE_ALL;
+extern const map_operator MAP_REMOVE_ALL;
 ```
 The parameter `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward` should be `0` or a pointer to a destructor function with signature `void (*)(void * ptr)` (such as `free`).
 
@@ -407,7 +413,7 @@ N.B.: A destination map identical to the source map would **deadly lock** the ca
 
 
 ```c
-extern map_operator MAP_MOVE_TO;
+extern const map_operator MAP_MOVE_TO;
 ```
 ## For debugging purpose
 
@@ -420,6 +426,9 @@ extern map_operator MAP_MOVE_TO;
 | - | - |
 | `map_check(map)` | `map_display ((map), 0, 0)` |
 
+```c
+extern void (*const SHAPE) (FILE * stream, const void *data);
+```
 ```c
 struct map *map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
 ```

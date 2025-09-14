@@ -11,7 +11,7 @@
 struct map_elem
 {
   struct map_elem *upper /* parent */ , *lt /* less than */ , *gt /* greater than */ ;  // Binary tree structure
-  struct map_elem *eq /* equal */ ;     // List of equal elements
+  struct map_elem *eq_next /* next equal element */ , *eq_head /* head of equal elements */ , *eq_tail /* tail of equal elements */ ;   // List of equal elements
   struct map_elem *previous_lt, *next_gt;       // Double-linked list structure
   void *data;
   const void *key_from_data;
@@ -27,6 +27,7 @@ struct map
   map_key_extractor get_key;
   void *arg;
   int uniqueness;               // Property
+  size_t nb_balancing;
   size_t nb_elem;
 };
 
@@ -110,6 +111,15 @@ map_height (map *m)
   return ret;
 }
 
+size_t
+map_nb_balancing (map *m)
+{
+  mtx_lock (&m->mutex);
+  size_t ret = m->nb_balancing;
+  mtx_unlock (&m->mutex);
+  return ret;
+}
+
 static struct map_elem *
 _map_previous_lt (struct map_elem *e)
 {
@@ -130,11 +140,11 @@ static struct map_elem *
 _map_previous (struct map_elem *e)
 {
   struct map_elem *ret = e;
-  if (ret->upper && ret == ret->upper->eq)
+  if (ret->upper && ret == ret->upper->eq_next)
     return ret->upper;
   ret = ret->previous_lt;
-  if (ret)
-    for (; ret->eq; ret = ret->eq) /* nothing */ ;      // Go to the bottom of equal elements
+  if (ret && ret->eq_next)
+    ret = ret->eq_tail;         // Go to the bottom of equal elements
   return ret;
 }
 
@@ -158,29 +168,31 @@ static struct map_elem *
 _map_next (struct map_elem *e)
 {
   struct map_elem *ret = e;
-  if (ret->eq)
-    return ret->eq;
-  for (; ret && ret->upper && ret == ret->upper->eq; ret = ret->upper) /* nothing */ ;  // Go to the top of equal elements
+  if (ret->eq_next)
+    return ret->eq_next;
+  if (ret->eq_head)
+    ret = ret->eq_head;         // Go to the top of equal elements
   return ret->next_gt;
 }
 
 static void
-_map_get_high (struct map_elem *from, struct map_elem *to)
+_map_get_high (struct map_elem *from)
 {
-  for (struct map_elem * e = from; e && e != to; e = e->upper)
+  for (struct map_elem * e = from; e; e = e->upper)
   {
-    if (e == e->upper)
-      fprintf (stderr, "%p\n", e);
+    size_t h = e->height;
     e->height = 1;
     if (!e->lt && !e->gt) /* nothing */ ;
     else if (!e->lt)
-      e->height += e->gt->height;
+      e->height = e->gt->height + 1;
     else if (!e->gt)
-      e->height += e->lt->height;
+      e->height = e->lt->height + 1;
     else if (e->lt->height < e->gt->height)
-      e->height += e->gt->height;
+      e->height = e->gt->height + 1;
     else
-      e->height += e->lt->height;
+      e->height = e->lt->height + 1;
+    if (e->height == h)
+      break;
   }
 }
 
@@ -214,7 +226,8 @@ _map_rotate_left (struct map_elem *A)
     else
       P->gt = B;
   }
-  _map_get_high (A, B->upper);
+  _map_get_high (A);
+  A->map->nb_balancing++;
   return B;
 }
 
@@ -237,85 +250,97 @@ _map_rotate_right (struct map_elem *A)
     else
       P->lt = B;
   }
-  _map_get_high (A, B->upper);
+  _map_get_high (A);
+  A->map->nb_balancing++;
   return B;
 }
 
 static struct map_elem *
 _map_balance (struct map_elem *from)
 {
+  static const size_t balancing_threashold = 1;
+  if (!balancing_threashold)
+    return 0;
   struct map_elem *R = 0;
   for (struct map_elem * e = from; e && e->upper; e = e->upper)
-    if (e->upper->lt == e)
+    if (e->upper->lt == e && e->height > (e->upper->gt ? e->upper->gt->height : 0) + balancing_threashold)
     {
-      struct map_elem *sibling = e->upper->gt;
-      if (e->height > (sibling ? sibling->height + 1 : 1))
+      struct map_elem *parent = e->upper;
+      struct map_elem *grandparent = parent->upper;
+      if (grandparent)
       {
-        struct map_elem *parent = e->upper;
-        struct map_elem *grandparent = parent->upper;
-        if (grandparent)
+        if (grandparent->lt == parent)
         {
-          if (grandparent->lt == parent)
-          {
-            grandparent->lt = _map_rotate_right (parent);
-            grandparent->lt->upper = grandparent;
-          }
-          else                  // if (grandparent->gt == parent)
-          {
-            grandparent->gt = _map_rotate_right (parent);
-            grandparent->gt->upper = grandparent;
-          }
+          grandparent->lt = _map_rotate_right (parent);
+          grandparent->lt->upper = grandparent;
         }
-        else
+        else                    // if (grandparent->gt == parent)
         {
-          R = _map_rotate_right (parent);
-          R->upper = 0;
+          grandparent->gt = _map_rotate_right (parent);
+          grandparent->gt->upper = grandparent;
         }
       }
-    }
-    else                        // if (e->upper->gt == e)
-    {
-      struct map_elem *sibling = e->upper->lt;
-      if (e->height > (sibling ? sibling->height + 1 : 1))
+      else
       {
-        struct map_elem *parent = e->upper;
-        struct map_elem *grandparent = parent->upper;
-        if (grandparent)
+        R = _map_rotate_right (parent);
+        R->upper = 0;
+      }
+    }                           // if (e->upper->lt == e && e->height > (e->upper->gt ? e->upper->gt->height : 0) + balancing_threashold)
+    else if (e->upper->gt == e && e->height > (e->upper->lt ? e->upper->lt->height : 0) + balancing_threashold)
+    {
+      struct map_elem *parent = e->upper;
+      struct map_elem *grandparent = parent->upper;
+      if (grandparent)
+      {
+        if (grandparent->gt == parent)
         {
-          if (grandparent->gt == parent)
-          {
-            grandparent->gt = _map_rotate_left (parent);
-            grandparent->gt->upper = grandparent;
-          }
-          else                  // if (grandparent->lt == parent)
-          {
-            grandparent->lt = _map_rotate_left (parent);
-            grandparent->lt->upper = grandparent;
-          }
+          grandparent->gt = _map_rotate_left (parent);
+          grandparent->gt->upper = grandparent;
         }
-        else
+        else                    // if (grandparent->lt == parent)
         {
-          R = _map_rotate_left (parent);
-          R->upper = 0;
+          grandparent->lt = _map_rotate_left (parent);
+          grandparent->lt->upper = grandparent;
         }
       }
-    }
+      else
+      {
+        R = _map_rotate_left (parent);
+        R->upper = 0;
+      }
+    }                           // if (e->upper->gt == e && e->height > (e->upper->lt ? e->upper->lt->height : 0) + balancing_threashold)
+  // for (struct map_elem * e = from; e && e->upper; e = e->upper)
   return R;
 }
 
+void (*const SHAPE) (FILE * stream, const void *data);
 #define fmapf(stream, ...) ((stream) ? (fprintf ((stream), __VA_ARGS__) + (fflush (stream), (int) 0)): (int) 0)
 static void
 _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char b, void (*displayer) (FILE *stream, const void *data))
 {
-  if (root)
+  if (!root)
+    return;
+  if (displayer == SHAPE)
   {
+    _map_scan_and_display (root->lt, stream, indent + 1, 'v', displayer);
+    if (indent)
+      fmapf (stream, "%c", b);
+    for (size_t i = 1; i < indent; i++)
+      fmapf (stream, "%c", '-');
+    fmapf (stream, "%c\n", '*');
+    _map_scan_and_display (root->gt, stream, indent + 1, '^', displayer);
+  }
+  else
+  {
+    assert (!root->lt || root->lt->upper == root);
+    _map_scan_and_display (root->lt, stream, indent + 1, '>', displayer);
     struct map *m = root->map;
     for (size_t i = 0; i < indent; i++)
       fmapf (stream, ". ");
     fmapf (stream, "%c ", b);
     fmapf (stream, "%p ", root);
-    assert (root != root->upper && root != root->lt && root != root->gt && root != root->previous_lt && root != root->next_gt && root != root->eq);
-    assert (!root->upper || root->upper->eq != root);
+    assert (root != root->upper && root != root->lt && root != root->gt && root != root->previous_lt && root != root->next_gt && root != root->eq_next);
+    assert (!root->upper || root->upper->eq_next != root);
     assert (root == m->first ? root->previous_lt == 0 : root->previous_lt != 0);
     assert (root->previous_lt == _map_previous_lt (root));
     assert (root->next_gt == _map_next_gt (root));
@@ -345,15 +370,17 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
       fmapf (stream, "(= *%p", root->data);
     fmapf (stream, "%s%s", root == m->first ? ", f" : "", root == m->last ? ", l" : "");
     fmapf (stream, ") ");
-    assert (!root->eq || root != m->last);
-    for (struct map_elem * eq = root->eq; eq; eq = eq->eq)
+    assert (!root->eq_next || root != m->last);
+    assert (!root->eq_next || (root->eq_tail && !root->eq_tail->eq_next && root->eq_tail->eq_head == root));
+    for (struct map_elem * eq = root->eq_next; eq; eq = eq->eq_next)
     {
       assert (!eq->lt && !eq->gt);
-      assert (eq->upper && eq->upper->eq == eq && (!eq->eq || eq->eq->upper == eq));
+      assert (eq->upper && eq->upper->eq_next == eq && (!eq->eq_next || eq->eq_next->upper == eq));
       assert (eq != m->first);
-      assert (!eq->eq || eq != m->last);
+      assert (!eq->eq_next || eq != m->last);
       assert (eq->previous_lt == 0);
       assert (eq->next_gt == 0);
+      assert (eq->eq_next || (eq->eq_head == root && eq->eq_head->eq_tail == eq));
       fmapf (stream, "=%s %p ", (m->cmp_key && !m->cmp_key (root->key_from_data, eq->key_from_data, 0)) ? "=" : "?", eq);
       if (displayer && stream && eq->data)
       {
@@ -369,15 +396,13 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
     fmapf (stream, "\n");
     assert (!root->gt || root->gt->upper == root);
     _map_scan_and_display (root->gt, stream, indent + 1, '<', displayer);
-    assert (!root->lt || root->lt->upper == root);
-    _map_scan_and_display (root->lt, stream, indent + 1, '>', displayer);
-  }
+  }                             // if (root)
 }
 
 struct map *
 map_display (struct map *m, FILE *stream, void (*displayer) (FILE *stream, const void *data))
 {
-  fmapf (stream, "%lu elements:\n", map_size (m));
+  fmapf (stream, "%'zu elements [%'zu]:\n", map_size (m), map_nb_balancing (m));
   mtx_lock (&m->mutex);
   if (m->root)
   {
@@ -386,13 +411,11 @@ map_display (struct map *m, FILE *stream, void (*displayer) (FILE *stream, const
     assert (m->nb_elem);
     assert (m->first);
     assert (m->last);
-    assert (!m->last->eq);
+    assert (!m->last->eq_next);
     assert (!m->root->upper && m->nb_elem && m->first && m->last);
     assert (!m->first->lt);
-    assert (!m->first->upper || !m->first->upper->eq || (m->first->upper->eq != m->first));
-    struct map_elem *e;
-    for (e = m->last; e->upper && e->upper->eq == e; e = e->upper);
-    assert (!e->gt);            // "!last->gt"
+    assert (!m->first->upper || !m->first->upper->eq_next || (m->first->upper->eq_next != m->first));
+    assert (!m->last->eq_head || !m->last->eq_head->gt);
   }
   else
     assert (!m->nb_elem && !m->first && !m->last);
@@ -408,7 +431,7 @@ map_insert_data (struct map *l, void *data)
     errno = EINVAL;
     return 0;
   }
-  struct map_elem *new = calloc (1, sizeof (*new));     // All elements are set to 0.
+  struct map_elem *new = calloc (1, sizeof (*new));     // All attributes are set to 0.
   if (!new)
   {
     errno = ENOMEM;
@@ -420,7 +443,8 @@ map_insert_data (struct map *l, void *data)
   mtx_lock (&l->mutex);
   new->key_from_data = l->get_key ? l->get_key (new->data) : 0; // The key is evaluated only once, at insertion.
   struct map_elem *iter;
-  int cmp;
+  int cmp, is_last;
+  is_last = 1;
   if (!(iter = l->root))
     l->root = l->first = l->last = new;
   else if (!l->cmp_key)
@@ -432,6 +456,7 @@ map_insert_data (struct map *l, void *data)
     while (1)
       if ((cmp = l->cmp_key ? l->cmp_key (new->key_from_data, iter->key_from_data, l->arg) : 0) < 0)
       {
+        is_last = 0;
         if (iter->lt)
           iter = iter->lt;
         else
@@ -443,7 +468,6 @@ map_insert_data (struct map *l, void *data)
       }
       else if (l->uniqueness && cmp == 0)
       {
-        fprintf (stderr, "%s: %s\n", __func__, "Already exists. Not inserted.");
         errno = EPERM;
         free (new);             // new is not inserted.
         new = 0;                // invalidate insertion.
@@ -451,8 +475,11 @@ map_insert_data (struct map *l, void *data)
       }
       else if (cmp == 0)        // && !l->uniqueness
       {
-        for (; iter->eq; iter = iter->eq) /* nothing */ ;       // Go to the bottom of equal elements
-        if (((iter->eq = new)->upper = iter) == l->last)
+        new->eq_head = iter;
+        if (iter->eq_next)
+          iter = iter->eq_tail; // Insert at the tail
+        new->eq_head->eq_tail = new;
+        if (((iter->eq_next = new)->upper = iter) == l->last)
           l->last = new;
         l->nb_elem++;
         mtx_unlock (&l->mutex);
@@ -462,9 +489,8 @@ map_insert_data (struct map *l, void *data)
         iter = iter->gt;
       else                      // (!iter->gt) && (cmp > 0)
       {
-        struct map_elem *last;
-        for (last = l->last; last->upper && last->upper->eq == last; last = last->upper);
-        if (((iter->gt = new)->upper = iter) == last)
+        (iter->gt = new)->upper = iter;
+        if (is_last)
           l->last = new;
         break;
       }
@@ -475,7 +501,7 @@ map_insert_data (struct map *l, void *data)
     if ((new->previous_lt = _map_previous_lt (new)))
       new->previous_lt->next_gt = new;
     l->nb_elem++;
-    _map_get_high (new, 0);
+    _map_get_high (new);
     struct map_elem *new_root = _map_balance (new);
     if (new_root)
       l->root = new_root;
@@ -496,34 +522,46 @@ _map_remove (struct map_elem *old)
   if (l->last == e)
     l->last = _map_previous (e);
 
-  if (e->upper && e->upper->eq == e)
+  if (e->upper && e->upper->eq_next == e)       // e is not the head of equal elements
   {
-    if (e->eq)
-      e->eq->upper = e->upper;
-    e->upper->eq = e->eq;
+    if (e->eq_next)             // e is not the tail of equal elements
+      e->eq_next->upper = e->upper;
+    else                        // e is the tail of equal elements
+    {
+      e->eq_head->eq_tail = e->upper;
+      e->upper->eq_head = e->eq_head;
+    }
+    e->upper->eq_next = e->eq_next;
   }
-  else if (e->eq)
+  else if (e->eq_next)          // e is the head of equal elements
   {
+    if (e->eq_next->eq_next)    // There are more than 2 equal elements
+    {
+      e->eq_next->eq_tail = e->eq_tail;
+      e->eq_tail->eq_head = e->eq_next;
+    }
+    else
+      e->eq_next->eq_head = e->eq_next->eq_tail = 0;
     if (!e->upper)
-      l->root = e->eq;
+      l->root = e->eq_next;
     else if (e->upper->lt == e)
-      e->upper->lt = e->eq;
+      e->upper->lt = e->eq_next;
     else if (e->upper->gt == e)
-      e->upper->gt = e->eq;
+      e->upper->gt = e->eq_next;
     if (e->lt)
-      e->lt->upper = e->eq;
+      e->lt->upper = e->eq_next;
     if (e->gt)
-      e->gt->upper = e->eq;
-    e->eq->lt = e->lt;
-    e->eq->gt = e->gt;
-    e->eq->upper = e->upper;
-    e->eq->previous_lt = e->previous_lt;
-    e->eq->next_gt = e->next_gt;
+      e->gt->upper = e->eq_next;
+    e->eq_next->lt = e->lt;
+    e->eq_next->gt = e->gt;
+    e->eq_next->upper = e->upper;
+    e->eq_next->previous_lt = e->previous_lt;
+    e->eq_next->next_gt = e->next_gt;
     if (e->previous_lt)
-      e->previous_lt->next_gt = e->eq;
+      e->previous_lt->next_gt = e->eq_next;
     if (e->next_gt)
-      e->next_gt->previous_lt = e->eq;
-    e->eq->height = e->height;
+      e->next_gt->previous_lt = e->eq_next;
+    e->eq_next->height = e->height;
   }
   else                          // if ((!e->upper || e->upper->eq != e) && !e->eq)
   {
@@ -582,7 +620,7 @@ _map_remove (struct map_elem *old)
       if (invalidated == e)
         invalidated = hibbard62;
       hibbard62->height = e->height;
-      _map_get_high (invalidated, 0);
+      _map_get_high (invalidated);
     }                           // if (e->lt && e->gt)
     else                        // if (!e->lt || !e->gt)
     {
@@ -600,7 +638,7 @@ _map_remove (struct map_elem *old)
         e->upper->lt = child;
       else if (e == e->upper->gt)       // (e == e->upper->gt)
         e->upper->gt = child;
-      _map_get_high (e->upper, 0);
+      _map_get_high (e->upper);
     }                           // if (!e->lt || !e->gt)
   }                             // if ((!e->upper || e->upper->eq != e) && !e->eq)
   free (old);
@@ -626,7 +664,10 @@ _map_traverse (map *m, map_operator op, void *op_arg, map_selector sel, void *se
     if (!sel || sel (e->data, sel_arg))
     {
       if (op)
+      {
         go_on = op (e->data, op_arg, &remove);
+        n = backward ? _map_previous (e) : _map_next (e);       // Again after op is called. An added equal element while traversing might be traversed later.
+      }
       nb_op++;
       if (remove)
         _map_remove (e);
@@ -676,7 +717,7 @@ map_find_key (struct map *l, const void *key, map_operator op, void *context)
     {
       int remove = 0;
       int go_on = op ? op (iter->data, context, &remove) : 1;
-      struct map_elem *next = iter->eq; // After op is called. An added equal element while finding will be found later.
+      struct map_elem *next = iter->eq_next;    // After op is called. An added equal element while finding will be found later.
       nb_op++;
       if (remove)
         _map_remove (iter);
@@ -697,7 +738,7 @@ _MAP_REMOVE (void *data, void *context, int *remove)
   return 0;
 }
 
-map_operator MAP_REMOVE_ONE = _MAP_REMOVE;
+const map_operator MAP_REMOVE_ONE = _MAP_REMOVE;
 
 static int
 _MAP_GET (void *data, void *context, int *remove)
@@ -708,7 +749,7 @@ _MAP_GET (void *data, void *context, int *remove)
   return 0;
 }
 
-map_operator MAP_GET_ONE = _MAP_GET;
+const map_operator MAP_GET_ONE = _MAP_GET;
 
 static int
 _MAP_REMOVE_ALL (void *data, void *context, int *remove)
@@ -722,7 +763,7 @@ _MAP_REMOVE_ALL (void *data, void *context, int *remove)
   return 1;
 }
 
-map_operator MAP_REMOVE_ALL = _MAP_REMOVE_ALL;
+const map_operator MAP_REMOVE_ALL = _MAP_REMOVE_ALL;
 
 static int
 _MAP_MOVE (void *data, void *context, int *remove)
@@ -737,4 +778,4 @@ _MAP_MOVE (void *data, void *context, int *remove)
   return (*remove = map_insert_data (context, data));   // *context is supposed to be a pointer to a map here.
 }
 
-map_operator MAP_MOVE_TO = _MAP_MOVE;
+const map_operator MAP_MOVE_TO = _MAP_MOVE;
