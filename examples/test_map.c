@@ -466,9 +466,6 @@ test5 (void)
   map_destroy (ints);
 }
 
-static void
-test6 (void)
-{
 #undef map_create
 #undef map_destroy
 #undef map_insert_data
@@ -476,6 +473,29 @@ test6 (void)
 #undef map_traverse_backward
 #undef map_size
 #undef map_height
+//#define map_display(map, ...) do { if (map_size (map) <= 64) map_display (map, __VA_ARGS__);} while (0)
+#define map_display(map, ...)
+static int
+fill_gaps (void *data, void *arg, int *)
+{
+  int value = *(int *) data;
+  void **args = arg;
+  map *ints = args[0];
+  int previous_value = *(int *) args[1];
+  for (int i = value + 1; i < previous_value; i++)
+  {
+    int *pi = malloc (sizeof (*pi));
+    *pi = (int) i;
+    map_insert_data (ints, pi);
+    map_display (ints, stderr, toint);
+  }
+  *(int *) args[1] = value;
+  return 1;
+}
+
+static void
+test6 (void)
+{
 #define log(ints, ts0) \
   do { \
     struct timespec ts; timespec_get (&ts, TIME_UTC);  \
@@ -483,6 +503,7 @@ test6 (void)
              map_size (ints), map_height (ints), map_nb_balancing (ints));  \
   } while (0)
   static const size_t NBs[] = { 64, 100, 1024, 1000 * 1000, 1024 * 1024, 8 * 1024 * 1024, 10 * 1000 * 1000 };
+  //static const size_t NBs[] = { 31, };
   for (size_t j = 0; j < sizeof (NBs) / sizeof (*NBs); j++)
     for (int k = 1; k <= 3; k++)
     {
@@ -499,25 +520,36 @@ test6 (void)
         {
           int *pi = malloc (sizeof (*pi));
           do
-            *pi = rand ();
+            *pi = rand () % (10 * (int) NB) + 1;
           while (!map_insert_data (ints, pi));
+          map_display (ints, stderr, toint);
         }
       else if (k == 2)
-        for (size_t i = 0; i < NB; i++)
+        for (size_t i = 1; i <= NB; i++)
         {
           int *pi = malloc (sizeof (*pi));
           *pi = (int) i;
           map_insert_data (ints, pi);
+          map_display (ints, stderr, toint);
         }
       else if (k == 3)
-        for (size_t step = NB / 2; step; step /= 2)
-          for (size_t i = step; i < NB; i += step)
+      {
+        for (size_t step = 2; step <= NB; step *= 2)
+          for (size_t i = 1; i <= step; i += 2)
           {
             int *pi = malloc (sizeof (*pi));
-            *pi = (int) i;
-            if (!map_insert_data (ints, pi))
-              free (pi);
+            *pi = (int) ((NB * i) / step) + 1;  // >= 2
+            map_insert_data (ints, pi);
+            map_display (ints, stderr, toint);
           }
+        int previous_int = (int) (NB + 1);
+        void *args[2] = { ints, &previous_int };
+        map_traverse_backward (ints, fill_gaps, args, 0, 0);
+        int *pi = malloc (sizeof (*pi));
+        *pi = 1;
+        map_insert_data (ints, pi);
+        map_display (ints, stderr, toint);
+      }
       log (ints, ts0);
       fprintf (stdout, "Traverse map...\n");
       int sum_of_squares = 0;
@@ -530,14 +562,14 @@ test6 (void)
         map_traverse (ints, MAP_REMOVE_ONE, &pi, 0, 0);
         free (pi);
       }
+      map_display (ints, stderr, toint);
       log (ints, ts0);
       fprintf (stdout, "Remove all remaining %'zu elements...\n", map_size (ints));
       map_traverse (ints, MAP_REMOVE_ALL, free, 0, 0);
       log (ints, ts0);
       fprintf (stdout, "Destroy empty map...\n");
       map_destroy (ints);
-    }                           // for (int k = 1; k <= 2; k++)
-  // for (size_t j = 0; j < sizeof (NBs) / sizeof (*NBs); j++)
+    }
 }
 
 int
