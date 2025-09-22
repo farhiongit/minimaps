@@ -478,9 +478,12 @@ creates and starts a timer. When the absolute time `timeout` is reached, the cal
 
 
 ```c
-void timer_unset (void *);
+int timer_unset (void *);
 ```
 cancels a previously set timer.
+
+
+- Returns 1 if the timer was removed, 0 otherwise.
 
 
 - Complexity: n

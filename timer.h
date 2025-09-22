@@ -13,8 +13,9 @@ void *timer_set (struct timespec timeout, void (*callback) (void *arg), void *ar
 // - Returns a timer id that can be passed to `timer_unset` to cancel a timer.
 // - Complexity: log n, where n is the number of timers previously set.
 
-void timer_unset (void *);
+int timer_unset (void *);
 // cancels a previously set timer.
+// - Returns 1 if the timer was removed, 0 otherwise.
 // - Complexity: n
 
 struct timespec delay_to_abs_timespec (double seconds);

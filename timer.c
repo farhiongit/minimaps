@@ -8,6 +8,8 @@
 #include "map.h"
 #include "timer.h"
 
+#define map_display(...)
+
 struct timer_elem
 {
   struct timespec timeout;
@@ -40,6 +42,15 @@ static struct                   // Ordered list of struct timer_elem stored in a
   int stop;
 } Timers = { 0 };
 
+static void
+displayer (FILE *stream, const void *data)
+{
+  struct timespec t0;
+  timespec_get (&t0, TIME_UTC); // C standard function, returns now. UTC since cnd_timedwait is UTC-based.
+  const struct timer_elem *timer = data;
+  fprintf (stream, "%g", (double) (timer->timeout.tv_sec - t0.tv_sec) + 1e-9 * (double) (timer->timeout.tv_nsec - t0.tv_nsec));
+}
+
 static void *
 Timers_add (struct timespec timeout, void (*callback) (void *arg), void *arg)
 {
@@ -50,9 +61,17 @@ Timers_add (struct timespec timeout, void (*callback) (void *arg), void *arg)
   new->callback = callback;
   new->arg = arg;
 
-  map_insert_data (Timers.map, new);
-  cnd_broadcast (&Timers.condition);
-  return new;
+  if (!Timers.map || !map_insert_data (Timers.map, new))
+  {
+    free (new);
+    return 0;
+  }
+  else
+  {
+    map_display (Timers.map, stderr, displayer);
+    cnd_broadcast (&Timers.condition);
+    return new;
+  }
 }
 
 static int
@@ -61,36 +80,42 @@ timer_by_id (const void *data, void *timer)
   return data == timer;
 }
 
-static void
+static int
 Timers_rm (void *timer)
 {
-  if (map_traverse (Timers.map, MAP_REMOVE_ONE, &timer, timer_by_id, timer))
+  void *t;
+  if (Timers.map && map_traverse (Timers.map, MAP_REMOVE_ONE, &t, timer_by_id, timer))
   {
-    free (timer);
+    map_display (Timers.map, stderr, displayer);
+    free (t);
     cnd_broadcast (&Timers.condition);
+    return 1;
   }
+  return 0;
 }
 
 static int
 Timers_loop (void *)
 {
-  mtx_lock (&Timers.mutex);
   while (!Timers.stop)
   {
+    mtx_lock (&Timers.mutex);
     struct timer_elem *earliest = 0;
-    map_traverse (Timers.map, MAP_REMOVE_ONE, &earliest, 0, 0);
-    if (!earliest)
+    if (!map_traverse (Timers.map, MAP_REMOVE_ONE, &earliest, 0, 0) || !earliest)
       cnd_wait (&Timers.condition, &Timers.mutex);
-    else if (cnd_timedwait (&Timers.condition, &Timers.mutex, &earliest->timeout) != thrd_timedout)
-      map_insert_data (Timers.map, earliest);
     else
     {
-      if (earliest->callback)
-        earliest->callback (earliest->arg);
-      free (earliest);
+      map_insert_data (Timers.map, earliest);
+      map_display (Timers.map, stderr, displayer);
+      if (cnd_timedwait (&Timers.condition, &Timers.mutex, &earliest->timeout) == thrd_timedout)
+      {
+        if (earliest->callback)
+          earliest->callback (earliest->arg);
+        Timers_rm (earliest);
+      }
     }
+    mtx_unlock (&Timers.mutex);
   }
-  mtx_unlock (&Timers.mutex);
   return 0;
 }
 
@@ -110,11 +135,13 @@ static once_flag TIMERS_INIT = ONCE_FLAG_INIT;
 static void
 Timers_init (void)              // Called once.
 {
-  if (!(Timers.map = map_create (timer_get_key, timer_cmp_key, 0, 0)))
-    return;
+  (void) displayer;
   mtx_init (&Timers.mutex, mtx_plain);
   cnd_init (&Timers.condition);
-  thrd_create (&Timers.thread, Timers_loop, 0); // The thread won't be destroyed and will never end. It will be stopped when the thread of the caller to timer_set will end.
+  mtx_lock (&Timers.mutex);
+  if ((Timers.map = map_create (timer_get_key, timer_cmp_key, 0, 0)))
+    thrd_create (&Timers.thread, Timers_loop, 0);       // The thread won't be destroyed and will never end. It will be stopped when the thread of the caller to timer_set will end.
+  mtx_unlock (&Timers.mutex);
   atexit (Timers_clear);
 }
 
@@ -134,12 +161,19 @@ void *
 timer_set (struct timespec timeout, void (*callback) (void *arg), void *arg)
 {
   call_once (&TIMERS_INIT, Timers_init);
-  return Timers_add (timeout, callback, arg);
+  cnd_broadcast (&Timers.condition);
+  mtx_lock (&Timers.mutex);
+  void *ret = Timers_add (timeout, callback, arg);
+  mtx_unlock (&Timers.mutex);
+  return ret;
 }
 
-void
+int
 timer_unset (void *timer)
 {
-  if (Timers.map)
-    Timers_rm (timer);
+  cnd_broadcast (&Timers.condition);
+  mtx_lock (&Timers.mutex);
+  int ret = Timers_rm (timer);
+  mtx_unlock (&Timers.mutex);
+  return ret;
 }

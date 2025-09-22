@@ -474,7 +474,9 @@ test5 (void)
 #undef map_size
 #undef map_height
 //#define map_display(map, ...) do { if (map_size (map) <= 64) map_display (map, __VA_ARGS__);} while (0)
-#define map_display(map, ...)
+#ifndef map_display
+#  define map_display(map, ...) do { if (map_size (map) <= 64) map_check (map);} while (0)
+#endif
 static int
 fill_gaps (void *data, void *arg, int *)
 {
@@ -502,10 +504,9 @@ test6 (void)
     fprintf (stdout, "[%'.Lf ms] %'zu element(s), height %zu [%'zu].\n", 1000.L * difftime (ts.tv_sec, ts0.tv_sec) + (ts.tv_nsec - ts0.tv_nsec) / 1000000.L,  \
              map_size (ints), map_height (ints), map_nb_balancing (ints));  \
   } while (0)
-  static const size_t NBs[] = { 64, 100, 1024, 1000 * 1000, 1024 * 1024, 8 * 1024 * 1024, 10 * 1000 * 1000 };
-  //static const size_t NBs[] = { 31, };
+  static const size_t NBs[] = { 0, 1, 2, 3, 4, 5, 64, 100, 1024, 10000, 1000 * 1000, 1024 * 1024, };
   for (size_t j = 0; j < sizeof (NBs) / sizeof (*NBs); j++)
-    for (int k = 1; k <= 3; k++)
+    for (int k = 1; k <= 4; k++)
     {
       puts ("============================================================");
       size_t NB = NBs[j];
@@ -514,7 +515,7 @@ test6 (void)
       fprintf (stdout, "Create map...\n");
       map *ints = map_create (0, cmpip, 0, 1);  // Unicity
       log (ints, ts0);
-      fprintf (stdout, "Insert %'zu %s elements...\n", NB, k == 1 ? "randomised" : k == 2 ? "sorted" : "even");
+      fprintf (stdout, "Insert %'zu %s elements...\n", NB, k == 1 ? "randomised" : k == 2 ? "sorted" : k == 3 ? "even" : "folded");
       if (k == 1)
         for (size_t i = 0; i < NB; i++)
         {
@@ -550,6 +551,14 @@ test6 (void)
         map_insert_data (ints, pi);
         map_display (ints, stderr, toint);
       }
+      else if (k == 4)
+        for (size_t i = 1; i <= NB; i++)
+        {
+          int *pi = malloc (sizeof (*pi));
+          *pi = i % 2 ? (int) (NB - i / 2) : (int) i / 2;
+          map_insert_data (ints, pi);
+          map_display (ints, stderr, toint);
+        }
       log (ints, ts0);
       fprintf (stdout, "Traverse map...\n");
       int sum_of_squares = 0;
@@ -561,8 +570,8 @@ test6 (void)
         int *pi = 0;
         map_traverse (ints, MAP_REMOVE_ONE, &pi, 0, 0);
         free (pi);
+        map_display (ints, stderr, toint);
       }
-      map_display (ints, stderr, toint);
       log (ints, ts0);
       fprintf (stdout, "Remove all remaining %'zu elements...\n", map_size (ints));
       map_traverse (ints, MAP_REMOVE_ALL, free, 0, 0);

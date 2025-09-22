@@ -1,10 +1,10 @@
 // (c) L. Farhi, 2024
 // Language: C (C11 or higher)
+#undef NDEBUG
 #include <threads.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
-#undef NDEBUG
 #include <assert.h>
 #include "map.h"
 
@@ -181,8 +181,9 @@ _map_get_high (struct map_elem *from)
   for (struct map_elem * e = from; e; e = e->upper)
   {
     size_t h = e->height;
-    e->height = 1;
-    if (!e->lt && !e->gt) /* nothing */ ;
+    (void) h;
+    if (!e->lt && !e->gt)
+      e->height = 1;            // > 0
     else if (!e->lt)
       e->height = e->gt->height + 1;
     else if (!e->gt)
@@ -196,15 +197,58 @@ _map_get_high (struct map_elem *from)
   }
 }
 
-static struct map_elem *
-_map_rotate_left (struct map_elem *A)
+static int
+_map_fold (struct map_elem *A)
 {
 /*
      A
+      \
+       B
+      /
+     C     =>   C
+               / \
+              A   B
+*/
+  if (!A || A->height != 3 || (A->lt && A->gt) || (!A->lt && !A->gt))
+    return 0;
+  struct map_elem *B = A->lt ? A->lt : A->gt;
+  if ((B->lt && B->gt) || (!B->lt && !B->gt) || (A->gt && B->gt) || (A->lt && B->lt))
+    return 0;
+  struct map_elem *C = B->lt ? B->lt : B->gt;
+  if (C->lt || C->gt)
+    return 0;
+  struct map_elem *P = A->upper;
+  C->gt = A->gt ? A->gt : A;
+  C->lt = A->lt ? A->lt : A;
+  assert ((C->lt == A && C->gt == B) || (C->gt == A && C->lt == B));
+  A->lt = A->gt = B->lt = B->gt = 0;
+  A->upper = B->upper = C;
+  _map_get_high (A);
+  _map_get_high (B);
+  _map_get_high (C);
+  if ((C->upper = P))
+  {
+    if (P->lt == A)
+      P->lt = C;
+    else
+      P->gt = C;
+    _map_get_high (P);
+  }
+  else
+    A->map->root = C;
+  A->map->nb_balancing++;
+  return 1;
+}
+
+static void
+_map_rotate_left (struct map_elem *A)
+{
+/*
+     A    h(A) = max(h(e),max(h(d),h(C))+1)+1
     / \
    e   B
       / \
-     C   d =>   B
+     C   d =>   B    h(B) = max(h(d),max(h(e),h(C))+1)+1
                / \
               A   d
              / \
@@ -213,7 +257,7 @@ _map_rotate_left (struct map_elem *A)
   struct map_elem *P = A->upper;
   struct map_elem *B = A->gt;
   if (!B)
-    return 0;
+    return;
   struct map_elem *C = B->lt;
   if ((A->gt = C))
     C->upper = A;
@@ -226,18 +270,22 @@ _map_rotate_left (struct map_elem *A)
     else
       P->gt = B;
   }
+  else
+    A->map->root = B;
+  // NOTE: the height of B may have not changed but the height of its parent has (for instance if e and C are null).
   _map_get_high (A);
+  _map_get_high (B);
+  _map_get_high (P);
   A->map->nb_balancing++;
-  return B;
 }
 
-static struct map_elem *
+static void
 _map_rotate_right (struct map_elem *A)
 {
   struct map_elem *P = A->upper;
   struct map_elem *B = A->lt;
   if (!B)
-    return 0;
+    return;
   struct map_elem *C = B->gt;
   if ((A->lt = C))
     C->upper = A;
@@ -250,76 +298,53 @@ _map_rotate_right (struct map_elem *A)
     else
       P->lt = B;
   }
+  else
+    A->map->root = B;
   _map_get_high (A);
+  _map_get_high (B);
+  _map_get_high (P);
   A->map->nb_balancing++;
-  return B;
 }
 
-static struct map_elem *
+static void
 _map_balance (struct map_elem *from)
 {
+  _map_get_high (from);
   static const size_t balancing_threashold = 1;
-  if (!balancing_threashold)
-    return 0;
-  struct map_elem *R = 0;
-  for (struct map_elem * e = from; e && e->upper; e = e->upper)
-    if (e->upper->lt == e && e->height > (e->upper->gt ? e->upper->gt->height : 0) + balancing_threashold)
+  if (!balancing_threashold || !from)
+    return;
+  for (struct map_elem * e = from; e;)
+  {
+    struct map_elem *n = e->upper;
+    if (!_map_fold (e))
     {
-      struct map_elem *parent = e->upper;
-      struct map_elem *grandparent = parent->upper;
-      if (grandparent)
-      {
-        if (grandparent->lt == parent)
-        {
-          grandparent->lt = _map_rotate_right (parent);
-          grandparent->lt->upper = grandparent;
-        }
-        else                    // if (grandparent->gt == parent)
-        {
-          grandparent->gt = _map_rotate_right (parent);
-          grandparent->gt->upper = grandparent;
-        }
-      }
-      else
-      {
-        R = _map_rotate_right (parent);
-        R->upper = 0;
-      }
-    }                           // if (e->upper->lt == e && e->height > (e->upper->gt ? e->upper->gt->height : 0) + balancing_threashold)
-    else if (e->upper->gt == e && e->height > (e->upper->lt ? e->upper->lt->height : 0) + balancing_threashold)
-    {
-      struct map_elem *parent = e->upper;
-      struct map_elem *grandparent = parent->upper;
-      if (grandparent)
-      {
-        if (grandparent->gt == parent)
-        {
-          grandparent->gt = _map_rotate_left (parent);
-          grandparent->gt->upper = grandparent;
-        }
-        else                    // if (grandparent->lt == parent)
-        {
-          grandparent->lt = _map_rotate_left (parent);
-          grandparent->lt->upper = grandparent;
-        }
-      }
-      else
-      {
-        R = _map_rotate_left (parent);
-        R->upper = 0;
-      }
-    }                           // if (e->upper->gt == e && e->height > (e->upper->lt ? e->upper->lt->height : 0) + balancing_threashold)
-  // for (struct map_elem * e = from; e && e->upper; e = e->upper)
-  return R;
+      size_t lh = e->lt ? e->lt->height : 0;
+      size_t gh = e->gt ? e->gt->height : 0;
+      if (lh > gh + balancing_threashold)
+        _map_rotate_right (e);
+      else if (gh > lh + balancing_threashold)
+        _map_rotate_left (e);
+    }
+    e = n;
+  }
 }
 
-void (*const SHAPE) (FILE * stream, const void *data);
+void (*const SHAPE) (FILE * stream, const void *data) = (const void *) (&SHAPE);
+static void
+nop_displayer (FILE *stream, const void *data)
+{
+  (void) stream;
+  (void) data;
+}
+
 #define fmapf(stream, ...) ((stream) ? (fprintf ((stream), __VA_ARGS__) + (fflush (stream), (int) 0)): (int) 0)
 static void
 _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char b, void (*displayer) (FILE *stream, const void *data))
 {
   if (!root)
     return;
+  if (!displayer)
+    displayer = nop_displayer;
   if (displayer == SHAPE)
   {
     _map_scan_and_display (root->lt, stream, indent + 1, 'v', displayer);
@@ -335,10 +360,9 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
     assert (!root->lt || root->lt->upper == root);
     _map_scan_and_display (root->lt, stream, indent + 1, '>', displayer);
     struct map *m = root->map;
+    fmapf (stream, "%3zu:", root->height);
     for (size_t i = 0; i < indent; i++)
       fmapf (stream, ". ");
-    fmapf (stream, "%c ", b);
-    fmapf (stream, "%p ", root);
     assert (root != root->upper && root != root->lt && root != root->gt && root != root->previous_lt && root != root->next_gt && root != root->eq_next);
     assert (!root->upper || root->upper->eq_next != root);
     assert (root == m->first ? root->previous_lt == 0 : root->previous_lt != 0);
@@ -346,11 +370,18 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
     assert (root->next_gt == _map_next_gt (root));
     assert (!root->previous_lt || root->previous_lt->next_gt == root);
     assert (!root->next_gt || root->next_gt->previous_lt == root);
-    if (displayer && stream && root->data)
+    if (root->data)
     {
-      fmapf (stream, "(= '");
+      fmapf (stream, "(");
+      if (root->upper)
+      {
+        fmapf (stream, "'");
+        displayer (stream, root->upper->data);
+        fmapf (stream, "' ");
+      }
+      fmapf (stream, "%c) '", b);
       displayer (stream, root->data);
-      fmapf (stream, "', ^%lu, in ] ", root->height);
+      fmapf (stream, "' (in ] ");
       if (root->previous_lt && root->previous_lt->data)
       {
         fmapf (stream, "'");
@@ -366,8 +397,6 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
       }
       fmapf (stream, "[");
     }
-    else
-      fmapf (stream, "(= *%p", root->data);
     fmapf (stream, "%s%s", root == m->first ? ", f" : "", root == m->last ? ", l" : "");
     fmapf (stream, ") ");
     assert (!root->eq_next || root != m->last);
@@ -381,21 +410,23 @@ _map_scan_and_display (struct map_elem *root, FILE *stream, size_t indent, char 
       assert (eq->previous_lt == 0);
       assert (eq->next_gt == 0);
       assert (eq->eq_next || (eq->eq_head == root && eq->eq_head->eq_tail == eq));
-      fmapf (stream, "=%s %p ", (m->cmp_key && !m->cmp_key (root->key_from_data, eq->key_from_data, 0)) ? "=" : "?", eq);
-      if (displayer && stream && eq->data)
-      {
-        fmapf (stream, "(= '");
-        displayer (stream, eq->data);
-        fmapf (stream, "'");
-      }
-      else
-        fmapf (stream, "(= *%p] ", eq->data);
-      fmapf (stream, "%s%s", eq == m->first ? ", f" : "", eq == m->last ? ", l" : "");
+      assert (m->cmp_key && !m->cmp_key (root->key_from_data, eq->key_from_data, 0));
+      fmapf (stream, "== '");
+      displayer (stream, eq->data);
+      fmapf (stream, "' (");
+      fmapf (stream, "%s%s%s", eq == m->first ? "f" : "", eq == m->first && eq == m->last ? " ," : "", eq == m->last ? "l" : "");
       fmapf (stream, ") ");
     }
     fmapf (stream, "\n");
     assert (!root->gt || root->gt->upper == root);
     _map_scan_and_display (root->gt, stream, indent + 1, '<', displayer);
+    assert (root->height);
+    assert (root->lt || root->gt || root->height == 1);
+    assert (root->lt || !root->gt || root->height == root->gt->height + 1);
+    assert (root->gt || !root->lt || root->height == root->lt->height + 1);
+    assert (!root->lt || root->height >= root->lt->height + 1);
+    assert (!root->gt || root->height >= root->gt->height + 1);
+    assert (!root->lt || !root->gt || root->height == root->lt->height + 1 || root->height == root->gt->height + 1);
   }                             // if (root)
 }
 
@@ -501,10 +532,9 @@ map_insert_data (struct map *l, void *data)
     if ((new->previous_lt = _map_previous_lt (new)))
       new->previous_lt->next_gt = new;
     l->nb_elem++;
-    _map_get_high (new);
-    struct map_elem *new_root = _map_balance (new);
-    if (new_root)
-      l->root = new_root;
+    // Here, new->height == 0
+    _map_balance (new);
+    _map_get_high (iter);
   }
   mtx_unlock (&l->mutex);
   return new ? 1 : 0;
@@ -563,84 +593,88 @@ _map_remove (struct map_elem *old)
       e->next_gt->previous_lt = e->eq_next;
     e->eq_next->height = e->height;
   }
-  else                          // if ((!e->upper || e->upper->eq != e) && !e->eq)
+  else if (e->lt && e->gt)
   {
-    if (e->lt && e->gt)
+    /* Makes use of the method proposed by T. Hibbard in 1962:
+       swap the node to be deleted with its successor or predecessor.
+       It changes the heights of the subtrees of 'old' by at most one.
+       See https://mathcenter.oxford.emory.edu/site/cs171/hibbardDeletion .
+       IMPORTANT NOTICE: Extra constraint imposed by from the interface:
+       Only the pointer 'old' passed as an argument should be destroyed
+       by the caller. Thus it cannot be reused as a placeholder for
+       the key and data of its predecessor or successor. Therefore,
+       the predecessor or successor will rather be moved in place of 'old. */
+    // e->previous_lt && e->next_gt
+    struct map_elem *hibbard62 = e->lt->height > e->gt->height ? e->previous_lt : e->next_gt;
+    struct map_elem *invalidated = hibbard62->upper == e ?
+      /* if hibbard62 is a child of e */ hibbard62 :
+      /* if hibbard62 is a grand-child of e */ hibbard62->upper;
+    // Here, !hibbard62->lt || !hibbard62->gt
+    // Move 'hibbard62' to the place where 'e' is in the tree.
+    if (hibbard62 == e->previous_lt)
+      (hibbard62->next_gt = e->next_gt)->previous_lt = hibbard62;
+    else if (hibbard62 == e->next_gt)
+      (hibbard62->previous_lt = e->previous_lt)->next_gt = hibbard62;
+    // N.B.: hibbard62 can sometimes be equal to e->lt or e->gt
+    struct map_elem *child = hibbard62->lt ? hibbard62->lt : hibbard62->gt;
+    // - Remove hibbard62 from the tree: change the 2 links
+    //   (from parent and child) pointing to hibbard62.
+    // hibbard62->upper != 0
+    // One (and only one) child of the parent of hibbard62 is changed.
+    // N.B.: e's children are changed here if hibbard62 is a child of e
+    if (hibbard62->upper->lt == hibbard62)
+      hibbard62->upper->lt = child;
+    else if (hibbard62->upper->gt == hibbard62)
+      hibbard62->upper->gt = child;
+    _map_get_high (hibbard62->upper);
+    if (child)
+      child->upper = hibbard62->upper;
+    // Here, nobody points to hibbard62 anymore.
+    // Move 'hibbard62' to the place where 'e' is in the tree.
+    // - Changes the 6 links of hibbard for the ones of node
+    hibbard62->upper = e->upper;
+    hibbard62->lt = e->lt;
+    if (e->lt)
+      e->lt->upper = hibbard62;
+    hibbard62->gt = e->gt;
+    if (e->gt)
+      e->gt->upper = hibbard62;
+    if (e->upper)
     {
-      /* Makes use of the method proposed by T. Hibbard in 1962:
-         swap the node to be deleted with its successor or predecessor.
-         It changes the heights of the subtrees of 'old' by at most one.
-         See https://mathcenter.oxford.emory.edu/site/cs171/hibbardDeletion .
-         IMPORTANT NOTICE: Extra constraint imposed by from the interface:
-         Only the pointer 'old' passed as an argument should be destroyed
-         by the caller. Thus it cannot be reused as a placeholder for
-         the key and data of its predecessor or successor. Therefore,
-         the predecessor or successor will rather be moved in place of 'old. */
-      // e->previous_lt && e->next_gt
-      struct map_elem *hibbard62 = e->lt->height > e->gt->height ? e->previous_lt : e->next_gt;
-      // !hibbard62->lt || !hibbard62->gt
-      // Move 'hibbard62' to the place of 'e' in the tree.
-      if (hibbard62 == e->previous_lt)
-        (hibbard62->next_gt = e->next_gt)->previous_lt = hibbard62;
-      else if (hibbard62 == e->next_gt)
-        (hibbard62->previous_lt = e->previous_lt)->next_gt = hibbard62;
-      // N.B.: hibbard62 can sometimes be equal to e->lt or e->gt
-      struct map_elem *child = hibbard62->lt ? hibbard62->lt : hibbard62->gt;
-      // - Remove hibbard62 from the tree: change the 2 links
-      //   (from parent and child) pointing to hibbard62.
-      // hibbard62->upper != 0
-      // N.B.: e's children are changed here if hibbard62 is a e's child
-      if (hibbard62->upper->lt == hibbard62)
-        hibbard62->upper->lt = child;
-      else if (hibbard62->upper->gt == hibbard62)
-        hibbard62->upper->gt = child;
-      if (child)
-        child->upper = hibbard62->upper;
-      // Invalidate the modified node
-      struct map_elem *invalidated = hibbard62->upper;
-      // Move 'hibbard62' to the place of 'e' in the tree.
-      // - Changes the 6 links of hibbard for the ones of node
-      hibbard62->upper = e->upper;
-      hibbard62->lt = e->lt;
-      hibbard62->gt = e->gt;
-      // N.B.: node's children could have changed here if hibbard was a node's child
-      if (e->lt)
-        e->lt->upper = hibbard62;
-      if (e->gt)
-        e->gt->upper = hibbard62;
-      if (e->upper)
-      {
-        if (e->upper->lt == e)
-          e->upper->lt = hibbard62;
-        else if (e->upper->gt == e)
-          e->upper->gt = hibbard62;
-      }
-      else
-        l->root = hibbard62;
-      if (invalidated == e)
-        invalidated = hibbard62;
-      hibbard62->height = e->height;
-      _map_get_high (invalidated);
-    }                           // if (e->lt && e->gt)
-    else                        // if (!e->lt || !e->gt)
-    {
-      if (e->previous_lt)
-        e->previous_lt->next_gt = e->next_gt;
-      if (e->next_gt)
-        e->next_gt->previous_lt = e->previous_lt;
-      struct map_elem *child;
-      // Here, !e->lt || !e->gt
-      if ((child = (e->lt ? e->lt : e->gt)))
-        child->upper = e->upper;
-      if (!e->upper)
-        l->root = child;        // Update map->root
-      else if (e == e->upper->lt)
-        e->upper->lt = child;
-      else if (e == e->upper->gt)       // (e == e->upper->gt)
-        e->upper->gt = child;
-      _map_get_high (e->upper);
-    }                           // if (!e->lt || !e->gt)
-  }                             // if ((!e->upper || e->upper->eq != e) && !e->eq)
+      if (e->upper->lt == e)
+        e->upper->lt = hibbard62;
+      else if (e->upper->gt == e)
+        e->upper->gt = hibbard62;
+    }
+    else
+      l->root = hibbard62;
+    //hibbard62->height = e->height;      // TODO: is this true ?
+    _map_get_high (hibbard62);
+    _map_get_high (e->upper);
+    // Here, some nodes points to hibbard62 again.
+    // Here, no node points to e anymore.
+    //hibbard62->height = e->height;
+    // Invalidate the modified node
+    _map_balance (invalidated);
+  }                             // if (e->lt && e->gt)
+  else                          // if (!e->lt || !e->gt)
+  {
+    if (e->previous_lt)
+      e->previous_lt->next_gt = e->next_gt;
+    if (e->next_gt)
+      e->next_gt->previous_lt = e->previous_lt;
+    struct map_elem *child;
+    // Here, !e->lt || !e->gt
+    if ((child = (e->lt ? e->lt : e->gt)))
+      child->upper = e->upper;
+    if (!e->upper)
+      l->root = child;          // Update map->root
+    else if (e == e->upper->lt)
+      e->upper->lt = child;
+    else if (e == e->upper->gt) // (e == e->upper->gt)
+      e->upper->gt = child;
+    _map_balance (e->upper);    // One (and only one) of the children of the parent has changed.
+  }                             // if (!e->lt || !e->gt)
   free (old);
   l->nb_elem--;
   return data;
