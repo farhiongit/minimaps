@@ -175,6 +175,7 @@ _map_next (struct map_elem *e)
   return ret->next_gt;
 }
 
+// _map_get_high MUST be called on a node every time one of its children (e->lt our e->gt) is modified.
 static void
 _map_get_high (struct map_elem *from)
 {
@@ -309,9 +310,8 @@ _map_rotate_right (struct map_elem *A)
 static void
 _map_balance (struct map_elem *from)
 {
-  _map_get_high (from);
   static const size_t balancing_threashold = 1;
-  if (!balancing_threashold || !from)
+  if (!balancing_threashold)
     return;
   for (struct map_elem * e = from; e;)
   {
@@ -532,9 +532,9 @@ map_insert_data (struct map *l, void *data)
     if ((new->previous_lt = _map_previous_lt (new)))
       new->previous_lt->next_gt = new;
     l->nb_elem++;
-    // Here, new->height == 0
-    _map_balance (new);
+    _map_get_high (new);
     _map_get_high (iter);
+    _map_balance (new);
   }
   mtx_unlock (&l->mutex);
   return new ? 1 : 0;
@@ -637,6 +637,7 @@ _map_remove (struct map_elem *old)
     if (e->lt)
       e->lt->upper = hibbard62;
     hibbard62->gt = e->gt;
+    _map_get_high (hibbard62);
     if (e->gt)
       e->gt->upper = hibbard62;
     if (e->upper)
@@ -648,12 +649,9 @@ _map_remove (struct map_elem *old)
     }
     else
       l->root = hibbard62;
-    //hibbard62->height = e->height;      // TODO: is this true ?
-    _map_get_high (hibbard62);
     _map_get_high (e->upper);
-    // Here, some nodes points to hibbard62 again.
+    // Here, some nodes point to hibbard62 again.
     // Here, no node points to e anymore.
-    //hibbard62->height = e->height;
     // Invalidate the modified node
     _map_balance (invalidated);
   }                             // if (e->lt && e->gt)
@@ -673,6 +671,7 @@ _map_remove (struct map_elem *old)
       e->upper->lt = child;
     else if (e == e->upper->gt) // (e == e->upper->gt)
       e->upper->gt = child;
+    _map_get_high (e->upper);
     _map_balance (e->upper);    // One (and only one) of the children of the parent has changed.
   }                             // if (!e->lt || !e->gt)
   free (old);

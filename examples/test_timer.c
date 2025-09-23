@@ -3,31 +3,32 @@
 #include <stdlib.h>
 #include "timer.h"
 
-static double ONE = 1;
 static double TWO = 2;
+static double THREE = 3;
 
 static void
 hello (void *arg)
 {
-  printf ("\nTimer callback: Hello (after %g seconds).\n\n", *(double *) arg);
+  printf ("\nTimer callback: Hello (after %g seconds since creation).\n\n", *(double *) arg);
 }
 
 int
 main (void)
 {
-  printf ("Set timer in %g seconds.\n", ONE);
-  void *timer1s = timer_set (delay_to_abs_timespec (ONE), hello, &ONE);
-  if (!timer1s)
-    fprintf (stderr, "ERROR: Could not set the timer ending in %g seconds.\n", ONE);
-  printf ("Set timer in %g seconds.\n", TWO);
-  void *timer2s = timer_set (delay_to_abs_timespec (TWO), hello, &TWO);
-  if (!timer2s)
+  printf ("Set timer in %g seconds from start.\n", TWO);
+  void *timera = timer_set (delay_to_abs_timespec (TWO), hello, &TWO);
+  if (!timera)
     fprintf (stderr, "ERROR: Could not set the timer ending in %g seconds.\n", TWO);
-  printf ("Remove the timer ending in %g seconds.\n", ONE);
-  if (!timer_unset (timer1s))
-    fprintf (stderr, "ERROR: Could not remove the timer ending in %g seconds.\n", ONE);
-  (void) timer2s;
-  printf ("Wait %g seconds.\n", 3.);
+  printf ("Set timer in %g seconds from start.\n", THREE);
+  void *timerb = timer_set (delay_to_abs_timespec (THREE), hello, &THREE);
+  if (!timerb)
+    fprintf (stderr, "ERROR: Could not set the timer ending in %g seconds.\n", THREE);
+  printf ("Wait %g seconds from now.\n", 1.);
+  sleep (1);
+  printf ("Remove the timer ending in %g seconds from start.\n", TWO);
+  if (!timer_unset (timera))
+    fprintf (stderr, "ERROR: Could not remove the timer ending in %g seconds.\n", TWO);
+  printf ("Wait %g seconds from now.\n", 3.);
   sleep (3);                    // Keep the program alive until the timer has timed out.
-  printf ("Exit after %g seconds.\n", 3.);
+  printf ("Exit after %g seconds from start.\n", 4.);
 }
