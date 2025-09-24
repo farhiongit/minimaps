@@ -97,9 +97,9 @@ Timers_rm (void *timer)
 static int
 Timers_loop (void *)
 {
+  mtx_lock (&Timers.mutex);
   while (!Timers.stop)
   {
-    mtx_lock (&Timers.mutex);
     struct timer_elem *earliest = 0;
     if (!map_traverse (Timers.map, MAP_REMOVE_ONE, &earliest, 0, 0) || !earliest)
       cnd_wait (&Timers.condition, &Timers.mutex);
@@ -114,8 +114,8 @@ Timers_loop (void *)
         Timers_rm (earliest);
       }
     }
-    mtx_unlock (&Timers.mutex);
   }
+  mtx_unlock (&Timers.mutex);
   return 0;
 }
 
@@ -162,9 +162,7 @@ timer_set (struct timespec timeout, void (*callback) (void *arg), void *arg)
 {
   call_once (&TIMERS_INIT, Timers_init);
   cnd_broadcast (&Timers.condition);
-  mtx_lock (&Timers.mutex);
   void *ret = Timers_add (timeout, callback, arg);
-  mtx_unlock (&Timers.mutex);
   return ret;
 }
 
@@ -172,8 +170,6 @@ int
 timer_unset (void *timer)
 {
   cnd_broadcast (&Timers.condition);
-  mtx_lock (&Timers.mutex);
   int ret = Timers_rm (timer);
-  mtx_unlock (&Timers.mutex);
   return ret;
 }
