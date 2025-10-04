@@ -113,7 +113,7 @@ test1 (void)
     map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
     map *lj = map_create (0, 0, 0, 0);
-    map_find_key (li, "r", MAP_MOVE_TO, lj);
+    map_find_key (li, "r", MAP_MOVE_TO, lj, 0, 0);
     map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
     map_traverse (lj, print_data, 0, 0, 0);
@@ -122,7 +122,7 @@ test1 (void)
     map_destroy (lj);
 
     map_display (li, stderr, tostring);
-    map_find_key (li, "c", MAP_REMOVE_ALL, 0);
+    map_find_key (li, "c", MAP_REMOVE_ALL, 0, 0, 0);
     map_display (li, stderr, tostring);
     map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
@@ -132,11 +132,11 @@ test1 (void)
     map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
 
-    map_find_key (li, "b", MAP_REMOVE_ONE, 0);
+    map_find_key (li, "b", MAP_REMOVE_ONE, 0, 0, 0);
     map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
 
-    map_find_key (li, "d", MAP_REMOVE_ONE, 0);
+    map_find_key (li, "d", MAP_REMOVE_ONE, 0, 0, 0);
     map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
 
@@ -309,45 +309,57 @@ cmp_word (const void *p1, const void *p2, void *arg)
 }
 
 static int
-sel_noun_masculine (const void *data, void *context)
+sel_noun_gender (const void *data, void *context)
 {
-  (void) context;
+  enum gender gender = *(enum gender *) context;
   const struct entry *e = data;
-  return e->word.class == NOUN && e->gender == MASCULINE;
+  return e->word.class == NOUN && e->gender == gender;
 }
 
 static void
 test3 (void)
 {
   puts ("============================================================");
-  map *dictionary = map_create (get_word, cmp_word, 0, 0);      // Dictionary. A word can have several definitions and therefore appear several times in the map.
-  map_insert_data (dictionary, &(struct entry)
+  map *french_dictionary = map_create (get_word, cmp_word, 0, 0);       // Dictionary. A word can have several definitions and therefore appear several times in the map.
+  map_insert_data (french_dictionary, &(struct entry)
                    {
                    {"Orange", NOUN}, FEMININE, "Fruit"
                    });
-  map_insert_data (dictionary, &(struct entry)
+  map_insert_data (french_dictionary, &(struct entry)
                    {
                    {"Abricot", NOUN}, MASCULINE, "Fruit"
                    });
-  map_insert_data (dictionary, &(struct entry)
+  map_insert_data (french_dictionary, &(struct entry)
                    {
                    {"Orange", NOUN}, MASCULINE, "Colour"
                    });
-  map_insert_data (dictionary, &(struct entry)
+  map_insert_data (french_dictionary, &(struct entry)
                    {
                    {"Orange", ADJECTIVE}, NONE, "Colour"
                    });
-  fprintf (stdout, "%lu element(s).\n", map_size (dictionary));
-  fprintf (stdout, "%lu element(s).\n", map_traverse (dictionary, 0, 0, 0, 0));
-  fprintf (stdout, "%lu element(s) found.\n", map_traverse (dictionary, 0, 0, sel_noun_masculine, 0));
-  fprintf (stdout, "%lu element(s) found.\n", map_find_key (dictionary, &(struct word)
-                                                            { "Orange", NOUN }, 0, 0));
-  fprintf (stdout, "%lu element(s) found.\n", map_find_key (dictionary, &(struct word)
-                                                            { "Orange", ADJECTIVE }, 0, 0));
-  fprintf (stdout, "%lu element(s) found.\n", map_find_key (dictionary, &(struct word)
-                                                            { "Orange", VERB }, 0, 0));
-  map_traverse (dictionary, MAP_REMOVE_ALL, 0, 0, 0);
-  map_destroy (dictionary);
+  map_insert_data (french_dictionary, &(struct entry)
+                   {
+                   {"Manger", VERB}, NONE, "Ingest"
+                   });
+  map_insert_data (french_dictionary, &(struct entry)
+                   {
+                   {"Manger", NOUN}, MASCULINE, "Food"
+                   });
+  fprintf (stdout, "%lu element(s).\n", map_size (french_dictionary));
+  fprintf (stdout, "%lu element(s).\n", map_traverse (french_dictionary, 0, 0, 0, 0));
+  fprintf (stdout, "%lu element(s) found.\n", map_traverse (french_dictionary, 0, 0, sel_noun_gender, &(enum gender)
+                                                            { FEMININE }));
+  fprintf (stdout, "%lu element(s) found.\n", map_find_key (french_dictionary, &(struct word)
+                                                            { "Orange", NOUN }, 0, 0, 0, 0));
+  fprintf (stdout, "%lu element(s) found.\n", map_find_key (french_dictionary, &(struct word)
+                                                            { "Orange", ADJECTIVE }, 0, 0, 0, 0));
+  fprintf (stdout, "%lu element(s) found.\n", map_find_key (french_dictionary, &(struct word)
+                                                            { "Orange", VERB }, 0, 0, 0, 0));
+  fprintf (stdout, "%lu element(s) found.\n", map_find_key (french_dictionary, &(struct word)
+                                                            { "Orange", NOUN }, 0, 0, sel_noun_gender, &(enum gender)
+                                                            { MASCULINE }));
+  map_traverse (french_dictionary, MAP_REMOVE_ALL, 0, 0, 0);
+  map_destroy (french_dictionary);
 }
 
 struct crossword
@@ -409,7 +421,7 @@ test4 (void)
   map_insert_data (dictionary, &(struct crossword)
                    {.word = "Grapes" });
   map_display (dictionary, stderr, 0);
-  fprintf (stdout, "%lu element(s) checked.\n", map_find_key (dictionary, &l, match, pattern));
+  fprintf (stdout, "%lu element(s) checked.\n", map_find_key (dictionary, &l, match, pattern, 0, 0));
   fprintf (stdout, "%lu element(s).\n", map_size (dictionary));
   map_traverse (dictionary, MAP_REMOVE_ALL, 0, 0, 0);
   map_destroy (dictionary);

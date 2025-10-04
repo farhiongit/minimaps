@@ -726,7 +726,7 @@ map_traverse_backward (map *m, map_operator op, void *op_arg, map_selector sel, 
 }
 
 size_t
-map_find_key (struct map *l, const void *key, map_operator op, void *context)
+map_find_key (struct map *l, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg)
 {
   if (!l || !key)
   {
@@ -749,9 +749,13 @@ map_find_key (struct map *l, const void *key, map_operator op, void *context)
     else if (cmp_key == 0)
     {
       int remove = 0;
-      int go_on = op ? op (iter->data, context, &remove) : 1;
+      int go_on = 1;
+      if (!sel || sel (iter->data, sel_arg))
+      {
+        go_on = op ? op (iter->data, op_arg, &remove) : 1;
+        nb_op++;
+      }
       struct map_elem *next = iter->eq_next;    // After op is called. An added equal element while finding will be found later.
-      nb_op++;
       if (remove)
         _map_remove (iter);
       iter = go_on ? next : 0;

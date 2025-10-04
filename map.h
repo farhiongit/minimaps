@@ -153,16 +153,19 @@ size_t map_nb_balancing (map * m);
 int map_insert_data (map *, void *data);
 // Adds a previously allocated data into map and returns `1` if the element was added, `0` otherwise.
 // Complexity : log n (see (*) above). MT-safe. Non-recursive.
+// > About one million elements can be inserted and sorted per second.
 
 // ### Retrieve and remove elements from a map
 
 // #### Find an element from its key
-size_t map_find_key (struct map *map, const void *key, map_operator op, void *op_arg);
-// If `get_key` is not null, applies `op` on the data of the elements in the map that matches the key (for which `cmp_key (get_key (data))` returns `0`), as long as `op` returns non-zero.
-// If `get_key` is null, applies `operator` on the data of the elements in the map that matches the data (for which `cmp_key (data)` returns `0`), as long as `op` returns non-zero.
-// If `op` is null, all the matching elements are found (and counted).
-// `op_arg` is passed as the second argument of operator `op`.
-// Returns the number of elements on which the operator `op` has been applied.
+size_t map_find_key (struct map *map, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
+// If `get_key` (as defined at map creation) is not null, applies `op` on the data of the elements in the map that matches the `key` (for which `cmp_key (get_key (data), key)` returns `0`), as long as `op` returns non-zero.
+// If `get_key` is null, applies the operator `op` on the data of the elements in the map that matches the data (for which `cmp_key (data, key)` returns `0`), as long as `op` returns non-zero.
+// If `op` is null, all the elements matching with the `key` and also selected by `sel` are found and counted.
+// If the selector `sel` is not null, elements for which `sel (data)` (where `data` is an element previously inserted into the map) returns `0` are ignored.
+// `op_arg` and `sel_arg` are passed as the second argument of operator `op` and selector `sel` respectively. For instance,
+// `op_arg` could be used as a pointer to an aggregator of an aggregating function `op`.
+// Returns the number of elements of the map that match `sel` (if set) and on which the operator `op` (if set) has been applied.
 // Complexity : log n (see (*)). MT-safe. Non-recursive.
 // > `cmp_key` should have been previously set by `map_create`.
 // > If `op` is null, `map_find_key` simply counts and returns the number of matching elements with the `key`.
@@ -176,7 +179,7 @@ size_t map_traverse_backward (map * map, map_operator op, void *op_arg, map_sele
 // If the operator `op` is not null, it is applied on the data stored in the map, from the first element to the last (resp. the other way round), as long as the operator `op` returns non-zero.
 // If `op` is null, all the elements are traversed without any further effect than counting the elements selected by `sel`.
 // If the selector `sel` is not null, elements for which `sel (data)` (where `data` is an element previously inserted into the map) returns `0` are ignored. `map_traverse` (resp.`map_traverse_backward`) behaves as if the operator `op` would start with: `if (!sel (data, sel_arg)) return 1;`.
-// `op_arg` and `sel_arg` are respectively passed as the second argument of operator `op` and selector `sel`. For instance,
+// `op_arg` and `sel_arg` are passed as the second argument of operator `op` and selector `sel` respectively. For instance,
 // `op_arg` could be used as a pointer to an aggregator of an aggregating function `op`.
 // Returns the number of elements of the map that match `sel` (if set) and on which the operator `op` (if set) has been applied.
 // Complexity : n. MT-safe. Non-recursive.

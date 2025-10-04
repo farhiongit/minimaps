@@ -258,24 +258,31 @@ Adds a previously allocated data into map and returns `1` if the element was add
 Complexity : log n (see (*) above). MT-safe. Non-recursive.
 
 
+> About one million elements can be inserted and sorted per second.
+
+
 ### Retrieve and remove elements from a map
 #### Find an element from its key
 ```c
-size_t map_find_key (struct map *map, const void *key, map_operator op, void *op_arg);
+size_t map_find_key (struct map *map, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
 ```
-If `get_key` is not null, applies `op` on the data of the elements in the map that matches the key (for which `cmp_key (get_key (data))` returns `0`), as long as `op` returns non-zero.
+If `get_key` (as defined at map creation) is not null, applies `op` on the data of the elements in the map that matches the `key` (for which `cmp_key (get_key (data), key)` returns `0`), as long as `op` returns non-zero.
 
 
-If `get_key` is null, applies `operator` on the data of the elements in the map that matches the data (for which `cmp_key (data)` returns `0`), as long as `op` returns non-zero.
+If `get_key` is null, applies the operator `op` on the data of the elements in the map that matches the data (for which `cmp_key (data, key)` returns `0`), as long as `op` returns non-zero.
 
 
-If `op` is null, all the matching elements are found (and counted).
+If `op` is null, all the elements matching with the `key` and also selected by `sel` are found and counted.
 
 
-`op_arg` is passed as the second argument of operator `op`.
+If the selector `sel` is not null, elements for which `sel (data)` (where `data` is an element previously inserted into the map) returns `0` are ignored.
 
 
-Returns the number of elements on which the operator `op` has been applied.
+`op_arg` and `sel_arg` are passed as the second argument of operator `op` and selector `sel` respectively. For instance,
+`op_arg` could be used as a pointer to an aggregator of an aggregating function `op`.
+
+
+Returns the number of elements of the map that match `sel` (if set) and on which the operator `op` (if set) has been applied.
 
 
 Complexity : log n (see (*)). MT-safe. Non-recursive.
@@ -310,7 +317,7 @@ If `op` is null, all the elements are traversed without any further effect than 
 If the selector `sel` is not null, elements for which `sel (data)` (where `data` is an element previously inserted into the map) returns `0` are ignored. `map_traverse` (resp.`map_traverse_backward`) behaves as if the operator `op` would start with: `if (!sel (data, sel_arg)) return 1;`.
 
 
-`op_arg` and `sel_arg` are respectively passed as the second argument of operator `op` and selector `sel`. For instance,
+`op_arg` and `sel_arg` are passed as the second argument of operator `op` and selector `sel` respectively. For instance,
 `op_arg` could be used as a pointer to an aggregator of an aggregating function `op`.
 
 
