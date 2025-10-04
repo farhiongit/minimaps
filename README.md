@@ -155,7 +155,10 @@ The third argument `remove` receives a non-null pointer for which `*remove` is s
 If (and only if) the operator sets `*remove` to a non-zero value,
 
   - the element will be removed from the map thread-safely ;
-  - the operator **should** keep track and ultimately free the data passed to it if it was allocated dynamically (otherwise data would be lost in memory leaks).
+  - the operator **should** keep track and ultimately free the data passed to it if it was allocated dynamically before insertion into the map (otherwise data would be lost in memory leaks).
+
+
+> `data` does not belong to the map.
 
 
 The `map_operator` should return `1` if the operator should be applied on further elements of the map, `0` otherwise. In other words,
@@ -239,6 +242,12 @@ Complexity : 1. MT-safe.
 int map_insert_data (map *, void *data);
 ```
 Adds a previously allocated data into map and returns `1` if the element was added, `0` otherwise.
+
+
+> `0` will be returned if `unicity` was set to `1` at creation of the map and a `data` with the sama key is already in the map.
+
+
+> `data` does not belong to the map after insertion.
 
 
 Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.

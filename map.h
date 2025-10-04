@@ -95,7 +95,8 @@ typedef int (*map_operator) (void *data, void *op_arg, int *remove);
 // If (and only if) the operator sets `*remove` to a non-zero value,
 //
 //   - the element will be removed from the map thread-safely ;
-//   - the operator **should** keep track and ultimately free the data passed to it if it was allocated dynamically (otherwise data would be lost in memory leaks).
+//   - the operator **should** keep track and ultimately free the data passed to it if it was allocated dynamically before insertion into the map (otherwise data would be lost in memory leaks).
+// > `data` does not belong to the map.
 // The `map_operator` should return `1` if the operator should be applied on further elements of the map, `0` otherwise. In other words,
 // as soon as the operator returns `0`, it stops `map_traverse`, `map_traverse_backward` or `map_find_key`. 
 // > The operator `map_operator` should neither modify the pointer returned by `map_key_extractor` nor its content (as evaluated by `map_key_comparator`). In other words, the key of the element in the map should remain untouched by `map_operator`, otherwise results are undefined.
@@ -144,6 +145,8 @@ size_t map_size (map *);
 // ### Add an element into a map
 int map_insert_data (map *, void *data);
 // Adds a previously allocated data into map and returns `1` if the element was added, `0` otherwise.
+// > `0` will be returned if `unicity` was set to `1` at creation of the map and a `data` with the sama key is already in the map.
+// > `data` does not belong to the map after insertion.
 // Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.
 // > About one million elements can be inserted and sorted per second.
 
