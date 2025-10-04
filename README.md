@@ -412,7 +412,7 @@ extern const map_operator MAP_MOVE_TO;
 > For fans only.
 
 
-/ ### Display the internal structure of the BBT of a map
+### Display the internal structure of the BBT of a map
 
 | Include |
 | - |
@@ -430,7 +430,7 @@ extern void (*const SHAPE) (FILE * stream, const void *data);
 `SHAPE` is a convenient displayer that only shows the structure of the BBT.
 
 
-/ ### Check the BBT structure of a map
+### Check the BBT structure of a map
 
 | Define | Value |
 | - | - |
