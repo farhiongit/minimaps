@@ -233,13 +233,13 @@ extern const map_operator MAP_MOVE_TO;
 
 // ## For debugging purpose
 // > For fans only.
-/// ### Display the internal structure of the BBT of a map
+// ### Display the internal structure of the BBT of a map
 #  include <stdio.h>
 struct map *map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
 // `displayer` is called for each element of the BBT.
 extern void (*const SHAPE) (FILE * stream, const void *data);
 // `SHAPE` is a convenient displayer that only shows the structure of the BBT.
-/// ### Check the BBT structure of a map
+// ### Check the BBT structure of a map
 #  define map_check(map) map_display ((map), 0, 0)
 // `map_check` controls invariants and the consistency of the map.
 
