@@ -127,8 +127,6 @@ map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *ar
 | FIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse (m, MAP_REMOVE_ONE, 0, &data)` to remove an element.          |
 | LIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse_backward (m, MAP_REMOVE_ONE, 0, &data)` to remove an element. |
 
-> (*) If `cmp_key` or `get_key` is `0`, complexity is reduced by a factor log n.
-
 */
 
 // ### Destroy a map
@@ -143,16 +141,10 @@ size_t map_size (map *);
 // Note: if the map is used by several threads, `map_size` should better not be used since the size of the map can be modified any time by other threads.
 // Complexity : 1. MT-safe.
 
-// ### Retrieve some internals of the balanced binary tree of a map
-// For logging purpose only.
-size_t map_height (map *);
-
-size_t map_nb_balancing (map * m);
-
 // ### Add an element into a map
 int map_insert_data (map *, void *data);
 // Adds a previously allocated data into map and returns `1` if the element was added, `0` otherwise.
-// Complexity : log n (see (*) above). MT-safe. Non-recursive.
+// Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.
 // > About one million elements can be inserted and sorted per second.
 
 // ### Retrieve and remove elements from a map
@@ -166,7 +158,7 @@ size_t map_find_key (struct map *map, const void *key, map_operator op, void *op
 // `op_arg` and `sel_arg` are passed as the second argument of operator `op` and selector `sel` respectively. For instance,
 // `op_arg` could be used as a pointer to an aggregator of an aggregating function `op`.
 // Returns the number of elements of the map that match `sel` (if set) and on which the operator `op` (if set) has been applied.
-// Complexity : log n (see (*)). MT-safe. Non-recursive.
+// Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.
 // > `cmp_key` should have been previously set by `map_create`.
 // > If `op` is null, `map_find_key` simply counts and returns the number of matching elements with the `key`.
 // > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `op_arg` argument). Therefore,
@@ -240,10 +232,20 @@ extern const map_operator MAP_REMOVE_ALL;
 extern const map_operator MAP_MOVE_TO;
 
 // ## For debugging purpose
+// > For fans only.
+/// ### Display the internal structure of the BBT of a map
 #  include <stdio.h>
-#  define map_check(map) map_display ((map), 0, 0)
-extern void (*const SHAPE) (FILE * stream, const void *data);
 struct map *map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
-// For fans only.
+// `displayer` is called for each element of the BBT.
+extern void (*const SHAPE) (FILE * stream, const void *data);
+// `SHAPE` is a convenient displayer that only shows the structure of the BBT.
+/// ### Check the BBT structure of a map
+#  define map_check(map) map_display ((map), 0, 0)
+// `map_check` controls invariants and the consistency of the map.
+
+// ### Retrieve some internals of the balanced binary tree of a map.
+size_t map_height (map *);
+
+size_t map_nb_balancing (map * m);
 
 #endif

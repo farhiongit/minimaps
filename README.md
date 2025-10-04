@@ -207,10 +207,6 @@ Otherwise, equal elements are sorted in the order they were inserted.
 | FIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse (m, MAP_REMOVE_ONE, 0, &data)` to remove an element.          |
 | LIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse_backward (m, MAP_REMOVE_ONE, 0, &data)` to remove an element. |
 
-> (*) If `cmp_key` or `get_key` is `0`, complexity is reduced by a factor log n.
-
-
-
 
 ### Destroy a map
 ```c
@@ -238,16 +234,6 @@ Note: if the map is used by several threads, `map_size` should better not be use
 Complexity : 1. MT-safe.
 
 
-### Retrieve some internals of the balanced binary tree of a map
-For logging purpose only.
-
-
-```c
-size_t map_height (map *);
-```
-```c
-size_t map_nb_balancing (map * m);
-```
 ### Add an element into a map
 ```c
 int map_insert_data (map *, void *data);
@@ -255,7 +241,7 @@ int map_insert_data (map *, void *data);
 Adds a previously allocated data into map and returns `1` if the element was added, `0` otherwise.
 
 
-Complexity : log n (see (*) above). MT-safe. Non-recursive.
+Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.
 
 
 > About one million elements can be inserted and sorted per second.
@@ -285,7 +271,7 @@ If the selector `sel` is not null, elements for which `sel (data)` (where `data`
 Returns the number of elements of the map that match `sel` (if set) and on which the operator `op` (if set) has been applied.
 
 
-Complexity : log n (see (*)). MT-safe. Non-recursive.
+Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.
 
 
 > `cmp_key` should have been previously set by `map_create`.
@@ -423,25 +409,45 @@ N.B.: A destination map identical to the source map would **deadly lock** the ca
 extern const map_operator MAP_MOVE_TO;
 ```
 ## For debugging purpose
+> For fans only.
+
+
+/ ### Display the internal structure of the BBT of a map
 
 | Include |
 | - |
 | `<stdio.h>` |
 
+```c
+struct map *map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
+```
+`displayer` is called for each element of the BBT.
+
+
+```c
+extern void (*const SHAPE) (FILE * stream, const void *data);
+```
+`SHAPE` is a convenient displayer that only shows the structure of the BBT.
+
+
+/ ### Check the BBT structure of a map
 
 | Define | Value |
 | - | - |
 | `map_check(map)` | `map_display ((map), 0, 0)` |
 
-```c
-extern void (*const SHAPE) (FILE * stream, const void *data);
-```
-```c
-struct map *map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
-```
-For fans only.
+`map_check` controls invariants and the consistency of the map.
 
 
+### Retrieve some internals of the balanced binary tree of a map.
+
+
+```c
+size_t map_height (map *);
+```
+```c
+size_t map_nb_balancing (map * m);
+```
 
 -----
 
