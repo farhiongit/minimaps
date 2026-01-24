@@ -816,3 +816,14 @@ _MAP_MOVE (void *data, void *context, int *remove)
 }
 
 const map_operator MAP_MOVE_TO = _MAP_MOVE;
+
+static int
+_MAP_EXISTS_ONE (void *data, void *context, int *remove)
+{
+  (void) data;                  // Not any action of elements.
+  (void) context;
+  *remove = 0;                  // The map is not modified.
+  return 0;                     // Stops on the first element found.
+}
+
+const map_operator MAP_EXISTS_ONE = _MAP_EXISTS_ONE;

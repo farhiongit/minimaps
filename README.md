@@ -39,6 +39,11 @@ They are detailed below.
 | - | - |
 | `__MAP_H__` |
 
+
+| Include |
+| - |
+| `<stddef.h>` |
+
 ### Map
 A map as an opaque Abstract Data Type (internally modelled as a sorted binary tree):
 
@@ -244,7 +249,7 @@ int map_insert_data (map *, void *data);
 Adds a previously allocated data into map and returns `1` if the element was added, `0` otherwise.
 
 
-> `0` will be returned if `unicity` was set to `1` at creation of the map and a `data` with the sama key is already in the map.
+> `0` will be returned if `unicity` was set to `1` at creation of the map and a `data` with the same key is already in the map.
 
 
 > `data` does not belong to the map after insertion.
@@ -335,13 +340,23 @@ elements can be removed from (when `*remove` is set to `1` in `op`) or inserted 
 >  - while traversing backward: at least a lower element is inserted.
 
 
-### Predefined operators for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
+### Predefined helper operators for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
 
 
-`map_operator` functions passed to `map_find_key`, `map_traverse` and `map_traverse_backward` should be user-defined.
+`map_operator` functions passed to `map_find_key`, `map_traverse` and `map_traverse_backward` can be user-defined according to one's need.
 
 
 But useful operators are provided below.
+
+
+### Map operator to check if at least one element verifies the selector operator.
+
+
+```c
+extern const map_operator MAP_EXISTS_ONE;
+```
+When the helper operator `MAP_EXISTS_ONE` is used, `map_find_key`, `map_traverse` and `map_traverse_backward` return 1
+if the selector operator returns 1 for at least one element.
 
 
 #### Map operator to retrieve one element

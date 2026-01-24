@@ -25,6 +25,8 @@ They are detailed below.
 #ifndef  __MAP_H__
 #  define __MAP_H__
 
+#  include <stddef.h>
+
 // ### Map
 // A map as an opaque Abstract Data Type (internally modelled as a sorted binary tree):
 typedef struct map map;
@@ -145,7 +147,7 @@ size_t map_size (map *);
 // ### Add an element into a map
 int map_insert_data (map *, void *data);
 // Adds a previously allocated data into map and returns `1` if the element was added, `0` otherwise.
-// > `0` will be returned if `unicity` was set to `1` at creation of the map and a `data` with the sama key is already in the map.
+// > `0` will be returned if `unicity` was set to `1` at creation of the map and a `data` with the same key is already in the map.
 // > `data` does not belong to the map after insertion.
 // Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.
 // > About one million elements can be inserted and sorted per second.
@@ -186,10 +188,15 @@ size_t map_traverse_backward (map * map, map_operator op, void *op_arg, map_sele
 // >  - while traversing forward: at least an equal or greater element is inserted ;
 // >  - while traversing backward: at least a lower element is inserted.
 
-// ### Predefined operators for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
+// ### Predefined helper operators for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
 
-// `map_operator` functions passed to `map_find_key`, `map_traverse` and `map_traverse_backward` should be user-defined.
+// `map_operator` functions passed to `map_find_key`, `map_traverse` and `map_traverse_backward` can be user-defined according to one's need.
 // But useful operators are provided below.
+
+// ### Map operator to check if at least one element verifies the selector operator.
+extern const map_operator MAP_EXISTS_ONE;
+// When the helper operator `MAP_EXISTS_ONE` is used, `map_find_key`, `map_traverse` and `map_traverse_backward` return 1
+// if the selector operator returns 1 for at least one element.
 
 // #### Map operator to retrieve one element
 // This map operator simply retrieves one element from the map.
