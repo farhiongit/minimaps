@@ -118,14 +118,13 @@ onlyonce_ptr_g (void *data, void *op_arg, int *remove) {
   RectangleInGroup *rg = data;
   size_t **group = (size_t **)op_arg;
   assert (group);
-  if (!*group) {
+  if (!*group)
     *group = &rg->group;
-    return 1;
-  } else if (**group != rg->group) {
+  else if (**group != rg->group) {
     *group = 0;
     return 0;
-  } else
-    return 1;
+  }
+  return 1;
 }
 
 static int
@@ -217,9 +216,33 @@ show_group (const void *key, void *op_arg) {
 }
 
 //=========================================================
-#define NB_ADD 211
-#define NB_LINES 25
-#define NB_COLS 25
+#define NB_ADD 40
+#define NB_LINES 10
+#define NB_COLS 10
+static void
+display_grid (const void *key, void *op_arg) {
+  (void)op_arg;
+  const size_t *group = key;
+  RectangleInGroup *rg;
+  for (long int x = 0; x < NB_COLS + 2; x++)
+    printf ("-");
+  printf ("\n");
+  for (long int y = 0; y < NB_LINES; y++) {
+    printf ("|");
+    for (long int x = 0; x < NB_COLS; x++)
+
+      if ((!group && map_traverse (RectanglesInGroups, MAP_GET_ONE, &rg, includes_r, &(Rectangle){ { x, y }, { x, y } }))
+          || (group && map_find_key (RectanglesInGroups, group, MAP_GET_ONE, &rg, includes_r, &(Rectangle){ { x, y }, { x, y } })))
+        printf ("%c", 'a' + (char)(rg->group % ('z' - 'a' + 1)));
+      else
+        printf (" ");
+    printf ("|\n");
+  }
+  for (long int x = 0; x < NB_COLS + 2; x++)
+    printf ("-");
+  printf ("\n");
+}
+
 int
 main (void) {
   assert ((RectanglesInGroups = map_create (g_key, g_comparator, 0, 0))); // Dictionary of groups
@@ -230,23 +253,9 @@ main (void) {
   }
 
   // map_traverse (RectanglesInGroups, display, 0, not_to_be_removed, 0);
-  RectangleInGroup *rg;
-  for (long int x = 0; x < NB_COLS + 2; x++)
-    printf ("-");
-  printf ("\n");
-  for (long int y = 0; y < NB_LINES; y++) {
-    printf ("|");
-    for (long int x = 0; x < NB_COLS; x++)
-      if (map_traverse (RectanglesInGroups, MAP_GET_ONE, &rg, includes_r, &(Rectangle){ { x, y }, { x, y } }))
-        printf ("%c", 'a' + (char)(rg->group % ('z' - 'a' + 1)));
-      else
-        printf (" ");
-    printf ("|\n");
-  }
-  for (long int x = 0; x < NB_COLS + 2; x++)
-    printf ("-");
-  printf ("\n");
+  display_grid (0, 0);
   printf ("%zu rectangles in %zu groups.\n", map_size (RectanglesInGroups), map_traverse_keys (RectanglesInGroups, 0, 0));
+  map_traverse_keys (RectanglesInGroups, display_grid, 0);
   // map_traverse_keys (RectanglesInGroups, show_group, 0);
 
   map_traverse (RectanglesInGroups, MAP_REMOVE_ALL, free, 0, 0);
