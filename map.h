@@ -7,8 +7,8 @@
 /* This library manages sorted maps, sorted sets, sorted and unsorted lists, FIFO and LIFO queues (depending on how the "map" is created).
    It uses a balanced binary tree for blazing fast insertion and removal (O(log n)) and a doubly-linked list for fast traversing (O(n)).
 
-   The library is based on an original paradigm: all operations on the elements of the map are applied through searching or traversing the map.
-   The interface has therefore only 8 functions to do everything needed (create, read, update, insert, count, move, remove, destroy, etc.), all of them being MT-safe:
+The library is based on an original paradigm: all operations on the elements of the map are applied through searching or traversing the map.
+The interface has therefore only 8 functions to do everything needed (create, read, update, insert, count, move, remove, destroy, etc.), all of them being MT-safe:
 
 - `map_create`
 - `map_destroy`
@@ -202,9 +202,9 @@ size_t map_traverse_keys (map * map, map_operator_on_key op, void *op_arg);
 // `map_operator` functions passed to `map_find_key`, `map_traverse` and `map_traverse_backward` can be user-defined according to one's need.
 // But useful operators are provided below.
 
-/// ### Map operator to count elements.
+// ### Map operator to count elements.
 extern const map_operator MAP_COUNT;
-/// When `0` or `MAP_COUNT` is used, `map_find_key`, `map_traverse` and `map_traverse_backward` return the number of elements for which the selector operator returns 1.
+// When `0` or `MAP_COUNT` is used, `map_find_key`, `map_traverse` and `map_traverse_backward` return the number of elements for which the selector operator returns 1.
 
 // ### Map operator to check if at least one element verifies the selector operator.
 extern const map_operator MAP_EXISTS_ONE;

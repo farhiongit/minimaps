@@ -14,8 +14,10 @@ This library manages sorted maps, sorted sets, sorted and unsorted lists, FIFO a
 
 
 
-	   The library is based on an original paradigm: all operations on the elements of the map are applied through searching or traversing the map.
-	   The interface has therefore only 8 functions to do everything needed (create, read, update, insert, count, move, remove, destroy, etc.), all of them being MT-safe:
+The library is based on an original paradigm: all operations on the elements of the map are applied through searching or traversing the map.
+
+
+The interface has therefore only 8 functions to do everything needed (create, read, update, insert, count, move, remove, destroy, etc.), all of them being MT-safe:
 
 - `map_create`
 - `map_destroy`
@@ -365,13 +367,13 @@ Returns `0` if `get_key` is `0` (with `errno` set to `EPERM`), the number of key
 But useful operators are provided below.
 
 
-/ ### Map operator to count elements.
+### Map operator to count elements.
 
 
 ```c
 extern const map_operator MAP_COUNT;
 ```
-/ When `0` or `MAP_COUNT` is used, `map_find_key`, `map_traverse` and `map_traverse_backward` return the number of elements for which the selector operator returns 1.
+When `0` or `MAP_COUNT` is used, `map_find_key`, `map_traverse` and `map_traverse_backward` return the number of elements for which the selector operator returns 1.
 
 
 ### Map operator to check if at least one element verifies the selector operator.
