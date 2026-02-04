@@ -343,7 +343,7 @@ elements can be removed from (when `*remove` is set to `1` in `op`) or inserted 
 >  - while traversing backward: at least a lower element is inserted.
 
 
-#### Traverse the keys of a map
+### Traverse the keys of a map
 
 | Type definition |
 | - |
@@ -367,7 +367,7 @@ Returns `0` if `get_key` is `0` (with `errno` set to `EPERM`), the number of key
 But useful operators are provided below.
 
 
-### Map operator to count elements.
+#### Map operator to count elements.
 
 
 ```c
@@ -376,7 +376,7 @@ extern const map_operator MAP_COUNT;
 When `0` or `MAP_COUNT` is used, `map_find_key`, `map_traverse` and `map_traverse_backward` return the number of elements for which the selector operator returns 1.
 
 
-### Map operator to check if at least one element verifies the selector operator.
+#### Map operator to check if at least one element verifies the selector operator.
 
 
 ```c

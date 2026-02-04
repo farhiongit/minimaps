@@ -191,7 +191,7 @@ size_t map_traverse_backward (map * map, map_operator op, void *op_arg, map_sele
 // >  - while traversing forward: at least an equal or greater element is inserted ;
 // >  - while traversing backward: at least a lower element is inserted.
 
-// #### Traverse the keys of a map
+// ### Traverse the keys of a map
 typedef void (*map_operator_on_key) (const void *key, void *op_arg);
 size_t map_traverse_keys (map * map, map_operator_on_key op, void *op_arg);
 // For each distinct key of a map, the operator `op` (if not null) is called once with the *key* (as returned by the declared `get_key` passed to `map_create`) passed as its first element, and `op_arg` as its second.
@@ -202,11 +202,11 @@ size_t map_traverse_keys (map * map, map_operator_on_key op, void *op_arg);
 // `map_operator` functions passed to `map_find_key`, `map_traverse` and `map_traverse_backward` can be user-defined according to one's need.
 // But useful operators are provided below.
 
-// ### Map operator to count elements.
+// #### Map operator to count elements.
 extern const map_operator MAP_COUNT;
 // When `0` or `MAP_COUNT` is used, `map_find_key`, `map_traverse` and `map_traverse_backward` return the number of elements for which the selector operator returns 1.
 
-// ### Map operator to check if at least one element verifies the selector operator.
+// #### Map operator to check if at least one element verifies the selector operator.
 extern const map_operator MAP_EXISTS_ONE;
 // When the helper operator `MAP_EXISTS_ONE` is used, `map_find_key`, `map_traverse` and `map_traverse_backward` return `1`
 // if the selector operator returns `1` for at least one element, `0` otherwise.
