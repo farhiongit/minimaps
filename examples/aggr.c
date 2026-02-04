@@ -239,7 +239,7 @@ main (void) {
     printf ("|");
     for (long int x = 0; x < NB_COLS; x++)
       if (map_traverse (RectanglesInGroups, MAP_GET_ONE, &rg, includes_r, &(Rectangle){ { x, y }, { x, y } }))
-        printf ("%c", 'a' + (char)rg->group % ('z' - 'a' + 1));
+        printf ("%c", 'a' + (char)(rg->group % ('z' - 'a' + 1)));
       else
         printf (" ");
     printf ("|\n");
@@ -247,6 +247,7 @@ main (void) {
   for (long int x = 0; x < NB_COLS + 2; x++)
     printf ("-");
   printf ("\n");
+  printf ("%zu rectangles in %zu groups.\n", map_size (RectanglesInGroups), map_traverse_keys (RectanglesInGroups, 0, 0));
   // map_traverse_keys (RectanglesInGroups, show_group, 0);
 
   map_traverse (RectanglesInGroups, MAP_REMOVE_ALL, free, 0, 0);
