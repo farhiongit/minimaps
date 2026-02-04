@@ -7,7 +7,7 @@ LDFLAGS=
 #CHECK=time
 
 .PHONY: all
-all: README.md libmap.a libmap.so test_map libtimer.a libtimer.so test_timer
+all: README.md libmap.a libmap.so test_map libtimer.a libtimer.so test_timer test_aggr
 
 #### Examples
 .PHONY: test_map
@@ -33,6 +33,18 @@ examples/test_timer: CPPFLAGS+=-I.
 examples/test_timer: LDFLAGS+=-L.
 examples/test_timer: LDLIBS=-ltimer
 examples/test_timer: examples/test_timer.c
+
+.PHONY: test_aggr
+test_aggr: libmap.so examples/aggr
+	@echo "********* $@ ************"
+	LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:. $(CHECK) ./examples/aggr
+	@echo "*********************"
+
+examples/aggr: CFLAGS+=-std=c23
+examples/aggr: CPPFLAGS+=-I.
+examples/aggr: LDFLAGS+=-L.
+examples/aggr: LDLIBS=-lmap
+examples/aggr: examples/aggr.c
 
 #### Libraries
 #C11 compliant, since <threads.h> is required.

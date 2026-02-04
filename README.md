@@ -13,7 +13,9 @@ This library manages sorted maps, sorted sets, sorted and unsorted lists, FIFO a
   It uses a balanced binary tree for blazing fast insertion and removal (O(log n)) and a doubly-linked list for fast traversing (O(n)).
 
 
-  The interface has only 7 functions to do everything (create, read, update, insert, remove, destroy):
+
+	   The library is based on an original paradigm: all operations on the elements of the map are applied through searching or traversing the map.
+	   The interface has therefore only 8 functions to do everything needed (create, read, update, insert, count, move, remove, destroy, etc.), all of them being MT-safe:
 
 - `map_create`
 - `map_destroy`
@@ -22,6 +24,7 @@ This library manages sorted maps, sorted sets, sorted and unsorted lists, FIFO a
 - `map_find_key` (MT-safe)
 - `map_traverse` (MT-safe)
 - `map_traverse_backward` (MT-safe)
+- `map_traverse_keys` (MT-safe)
 
 They are detailed below.
 
@@ -288,9 +291,7 @@ Returns the number of elements of the map that match `sel` (if set) and on which
 Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.
 
 
-> `cmp_key` should have been previously set by `map_create`.
-
-
+> `cmp_key` should have been previously set by `map_create` (otherwise, `0` is returned and `errno` is set to `EPERM`.)
 > If `op` is null, `map_find_key` simply counts and returns the number of matching elements with the `key`.
 
 
@@ -298,7 +299,7 @@ Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.
 elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while finding elements.
 
 
-#### Traverse a map
+#### Traverse the elements of a map
 ```c
 size_t map_traverse (map * map, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
 ```
@@ -340,7 +341,22 @@ elements can be removed from (when `*remove` is set to `1` in `op`) or inserted 
 >  - while traversing backward: at least a lower element is inserted.
 
 
-### Predefined helper operators for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
+#### Traverse the keys of a map
+
+| Type definition |
+| - |
+| `void (*map_operator_on_key) (const void *key, void *op_arg)` |
+
+```c
+size_t map_traverse_keys (map * map, map_operator_on_key op, void *op_arg);
+```
+For each distinct key of a map, the operator `op` (if not null) is called once with the *key* (as returned by the declared `get_key` passed to `map_create`) passed as its first element, and `op_arg` as its second.
+
+
+Returns `0` if `get_key` is `0` (with `errno` set to `EPERM`), the number of keys otherwise.
+
+
+### Predefined useful and usual helper operators for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
 
 
 `map_operator` functions passed to `map_find_key`, `map_traverse` and `map_traverse_backward` can be user-defined according to one's need.
@@ -349,14 +365,23 @@ elements can be removed from (when `*remove` is set to `1` in `op`) or inserted 
 But useful operators are provided below.
 
 
+/ ### Map operator to count elements.
+
+
+```c
+extern const map_operator MAP_COUNT;
+```
+/ When `0` or `MAP_COUNT` is used, `map_find_key`, `map_traverse` and `map_traverse_backward` return the number of elements for which the selector operator returns 1.
+
+
 ### Map operator to check if at least one element verifies the selector operator.
 
 
 ```c
 extern const map_operator MAP_EXISTS_ONE;
 ```
-When the helper operator `MAP_EXISTS_ONE` is used, `map_find_key`, `map_traverse` and `map_traverse_backward` return 1
-if the selector operator returns 1 for at least one element.
+When the helper operator `MAP_EXISTS_ONE` is used, `map_find_key`, `map_traverse` and `map_traverse_backward` return `1`
+if the selector operator returns `1` for at least one element, `0` otherwise.
 
 
 #### Map operator to retrieve one element

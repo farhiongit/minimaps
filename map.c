@@ -12,7 +12,7 @@ struct map_elem
 {
   struct map_elem *upper /* parent */ , *lt /* less than */ , *gt /* greater than */ ;  // Binary tree structure
   struct map_elem *eq_next /* next equal element */ , *eq_head /* head of equal elements */ , *eq_tail /* tail of equal elements */ ;   // List of equal elements
-  struct map_elem *previous_lt, *next_gt;       // Double-linked list structure
+  struct map_elem *previous_lt, *next_gt;       // Double-linked list structure between nodes of different keys
   void *data;
   const void *key_from_data;
   struct map *map;              // Owner
@@ -696,11 +696,8 @@ _map_traverse (map *m, map_operator op, void *op_arg, map_selector sel, void *se
     int go_on = 1;
     if (!sel || sel (e->data, sel_arg))
     {
-      if (op)
-      {
-        go_on = op (e->data, op_arg, &remove);
-        n = backward ? _map_previous (e) : _map_next (e);       // Again after op is called. An added equal element while traversing might be traversed later.
-      }
+      if (op && ((go_on = op (e->data, op_arg, &remove))))
+        n = backward ? _map_previous (e) : _map_next (e);       // Repeat again, after op has been called (an added equal element while traversing might be traversed later.)
       nb_op++;
       if (remove)
         _map_remove (e);
@@ -755,14 +752,41 @@ map_find_key (struct map *l, const void *key, map_operator op, void *op_arg, map
         go_on = op ? op (iter->data, op_arg, &remove) : 1;
         nb_op++;
       }
-      struct map_elem *next = iter->eq_next;    // After op is called. An added equal element while finding will be found later.
+      struct map_elem *next = go_on ? iter->eq_next : 0;        // After op is called. An added equal element while finding will be found later.
       if (remove)
         _map_remove (iter);
-      iter = go_on ? next : 0;
+      iter = next;
     }
     else                        // cmp_key > 0
       iter = iter->gt;
   mtx_unlock (&l->mutex);
+  return nb_op;
+}
+
+size_t
+map_traverse_keys (map *m, map_operator_on_key op, void *op_arg)
+{
+  if (!m)
+  {
+    errno = EINVAL;
+    return 0;
+  }
+  if (!m->get_key)
+  {
+    fprintf (stderr, "%s: %s\n", __func__, "Undefined key.");
+    errno = EPERM;
+    return 0;
+  }
+
+  mtx_lock (&m->mutex);
+  size_t nb_op = 0;
+  for (struct map_elem * e = m->first; e; e = e->next_gt)
+  {
+    if (op)
+      op (m->get_key (e->data), op_arg);
+    nb_op++;
+  }
+  mtx_unlock (&m->mutex);
   return nb_op;
 }
 
@@ -827,3 +851,4 @@ _MAP_EXISTS_ONE (void *data, void *context, int *remove)
 }
 
 const map_operator MAP_EXISTS_ONE = _MAP_EXISTS_ONE;
+const map_operator MAP_COUNT = 0;
