@@ -191,6 +191,7 @@ r_add (Rectangle r) {
   else {
     g = ++group;
     map_traverse (RectanglesInGroups, regroup_g, &g, touches_r, &r);
+    map_traverse (RectanglesInGroups, MAP_REMOVE_ALL, free, to_be_removed, 0);
   }
 
   RectangleInGroup *p = malloc (sizeof (*p));
@@ -227,8 +228,6 @@ main (void) {
     Point p = { random () % NB_COLS, random () % NB_LINES };
     r_add ((Rectangle){ p, p });
   }
-
-  map_traverse (RectanglesInGroups, MAP_REMOVE_ALL, free, to_be_removed, 0);
 
   // map_traverse (RectanglesInGroups, display, 0, not_to_be_removed, 0);
   RectangleInGroup *rg;
