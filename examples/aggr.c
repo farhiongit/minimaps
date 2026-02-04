@@ -208,6 +208,7 @@ display (void *data, void *op_arg, int *remove) {
   return 1;
 }
 
+//=========================================================
 [[maybe_unused]] static void
 show_group (const void *key, void *op_arg) {
   (void)op_arg;
@@ -215,14 +216,12 @@ show_group (const void *key, void *op_arg) {
   map_find_key (RectanglesInGroups, key, display, 0, not_to_be_removed, 0);
 }
 
-//=========================================================
 #define NB_ADD 40
 #define NB_LINES 10
 #define NB_COLS 10
 static void
 display_grid (const void *key, void *op_arg) {
   (void)op_arg;
-  const size_t *group = key;
   RectangleInGroup *rg;
   for (long int x = 0; x < NB_COLS + 2; x++)
     printf ("-");
@@ -230,9 +229,8 @@ display_grid (const void *key, void *op_arg) {
   for (long int y = 0; y < NB_LINES; y++) {
     printf ("|");
     for (long int x = 0; x < NB_COLS; x++)
-
-      if ((!group && map_traverse (RectanglesInGroups, MAP_GET_ONE, &rg, includes_r, &(Rectangle){ { x, y }, { x, y } }))
-          || (group && map_find_key (RectanglesInGroups, group, MAP_GET_ONE, &rg, includes_r, &(Rectangle){ { x, y }, { x, y } })))
+      if ((!key && map_traverse (RectanglesInGroups, MAP_GET_ONE, &rg, includes_r, &(Rectangle){ { x, y }, { x, y } }))
+          || (key && map_find_key (RectanglesInGroups, key, MAP_GET_ONE, &rg, includes_r, &(Rectangle){ { x, y }, { x, y } })))
         printf ("%c", 'a' + (char)(rg->group % ('z' - 'a' + 1)));
       else
         printf (" ");
