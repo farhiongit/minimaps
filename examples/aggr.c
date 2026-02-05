@@ -17,13 +17,8 @@ typedef struct
 } Rectangle;
 
 static bool
-p_is_inside (Point p, Rectangle r) {
-  return p.x >= r.origin.x && p.x <= r.end.x && p.y >= r.origin.y && p.y <= r.end.y;
-}
-
-static bool
 r_intersects (Rectangle r1, Rectangle r2) {
-  return p_is_inside (r1.origin, r2) || p_is_inside (r1.end, r2) || p_is_inside ((Point){ r1.origin.x, r1.end.y }, r2) || p_is_inside ((Point){ r1.end.x, r1.origin.y }, r2);
+  return !(r2.origin.x > r1.end.x || r2.end.y < r1.origin.y || r1.origin.x > r2.end.x || r1.end.y < r2.origin.y); // ??
 }
 
 static bool
@@ -31,8 +26,8 @@ r_is_contiguous (Rectangle r1, Rectangle r2) {
   return r_intersects (r1, (Rectangle){ { r2.origin.x - 1, r2.origin.y - 1 }, { r2.end.x + 1, r2.end.y + 1 } });
 }
 
-#define min(a, b) (a > b ? b : a)
-#define max(a, b) (a < b ? b : a)
+#define min(a, b) ((a) > (b) ? (b) : (a))
+#define max(a, b) ((a) < (b) ? (b) : (a))
 static Rectangle
 r_union (Rectangle r1, Rectangle r2) {
   return (Rectangle){
