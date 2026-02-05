@@ -1,4 +1,7 @@
 // This complete example aggregates, in uniquely identified groups, adjacent points in an unbound square grid (the complexity does not depend on the spread of the grid.)
+// - Unbound square grid. Adjacent positions are those that touch horizontally, vertically are diagonally.
+// - Grid filled with a stream, incrementally.
+// Find groups of adjacent positions.
 #define _DEFAULT_SOURCE // for random
 #undef NDEBUG           // for assert
 #include <assert.h>
@@ -50,12 +53,11 @@ r_complements (Rectangle r1, Rectangle r2) {                                    
 }
 
 //=========================================================
-static map *RectanglesInGroups = 0;
-
 typedef struct
 {
   Rectangle r;
   size_t group;
+  map *owner;
   bool to_be_removed;
 } RectangleInGroup;
 
@@ -132,7 +134,7 @@ changegroup_g (void *data, void *new_group, int *remove) {
   assert (new_r);
   *new_r = *rg;
   new_r->group = *(size_t *)new_group;
-  assert (map_insert_data (RectanglesInGroups, new_r));
+  assert (map_insert_data (new_r->owner, new_r));
   // - The rectangle in the old group is marked to be removed (changegroup_g MUST NOT remove any element.)
   rg->to_be_removed = true;
   (void)remove;
@@ -150,52 +152,55 @@ regroup_g (void *data, void *op_arg, int *remove) {
   // Since elements MUST NOT be removed other way than with *remove = 1, changegroup_g MUST NOT remove any element.
   size_t oldgroup = rg->group;
   if (oldgroup != *ptr_g)
-    map_find_key (RectanglesInGroups, &oldgroup, changegroup_g, ptr_g, 0, 0);
+    map_find_key (rg->owner, &oldgroup, changegroup_g, ptr_g, 0, 0);
   return 1;
 }
 
-// Add a new Rectangle r1:
-// - traverse the list and search for complements of r1 (r_complements)
-// - if found:
-//   - remove it from the list
-//   - complement it (r_union) to the new Rectangle r1 into r2
-//   - Add r2 to the list (recursively).
-// Hypothesis: r1 is not in the set yet.
+static int
+bbox_g (void *data, void *op_arg, int *remove) {
+  (void)remove;
+  RectangleInGroup *rg = data;
+  Rectangle *bbox = op_arg;
+  *bbox = r_union (rg->r, *bbox);
+  return 1;
+}
+
 static void
-r_add (Rectangle r) {
+r_add (map *owner, Rectangle r) {
   static size_t group = 0;
   static int CHECK_DUPLICATES = 1;
 
-  if (CHECK_DUPLICATES && map_traverse (RectanglesInGroups, MAP_EXISTS_ONE, 0, includes_r, &r))
+  if (CHECK_DUPLICATES && map_traverse (owner, MAP_EXISTS_ONE, 0, includes_r, &r))
     return;
 
   RectangleInGroup *rg = 0;
-  if (map_traverse (RectanglesInGroups, MAP_REMOVE_ONE, &rg, matches_r, &r) && rg) {
-    r_add (r_union (r, rg->r));
+  if (map_traverse (owner, MAP_REMOVE_ONE, &rg, matches_r, &r) && rg) {
+    r_add (owner, r_union (r, rg->r));
     free (rg);
     return;
   }
 
   size_t *ptr_g = 0;
   size_t g;
-  if (!map_traverse (RectanglesInGroups, onlyonce_ptr_g, &ptr_g, touches_r, &r))
+  if (!map_traverse (owner, onlyonce_ptr_g, &ptr_g, touches_r, &r))
     g = ++group;
   else if (ptr_g)
     g = *ptr_g;
   else {
     g = ++group;
-    map_traverse (RectanglesInGroups, regroup_g, &g, touches_r, &r);
-    map_traverse (RectanglesInGroups, MAP_REMOVE_ALL, free, to_be_removed, 0);
+    map_traverse (owner, regroup_g, &g, touches_r, &r);
+    map_traverse (owner, MAP_REMOVE_ALL, free, to_be_removed, 0);
   }
 
   RectangleInGroup *p = malloc (sizeof (*p));
   assert (p);
-  *p = (RectangleInGroup){ .r = r, .group = g, .to_be_removed = false };
-  assert (map_insert_data (RectanglesInGroups, p));
+  *p = (RectangleInGroup){ .r = r, .group = g, .to_be_removed = false, .owner = owner };
+  assert (map_insert_data (owner, p));
 }
 
+//=========================================================
 static int
-display (void *data, void *op_arg, int *remove) {
+show_rectangle (void *data, void *op_arg, int *remove) {
   (void)op_arg;
   (void)remove;
   RectangleInGroup *r = data;
@@ -203,53 +208,64 @@ display (void *data, void *op_arg, int *remove) {
   return 1;
 }
 
-//=========================================================
 [[maybe_unused]] static void
 show_group (const void *key, void *op_arg) {
-  (void)op_arg;
+  map *owner = op_arg;
   printf ("%zu: ...\n", *(const size_t *)key);
-  map_find_key (RectanglesInGroups, key, display, 0, not_to_be_removed, 0);
+  map_find_key (owner, key, show_rectangle, 0, not_to_be_removed, 0);
 }
 
-#define NB_ADD 40
-#define NB_LINES 10
-#define NB_COLS 10
+static size_t
+find_or_traverse (map *m, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg) {
+  if (key)
+    return map_find_key (m, key, op, op_arg, sel, sel_arg);
+  else
+    return map_traverse (m, op, op_arg, sel, sel_arg);
+}
+
 static void
-display_grid (const void *key, void *op_arg) {
-  (void)op_arg;
+display_group (const void *key, void *op_arg) {
+  map *owner = op_arg;
   RectangleInGroup *rg;
-  for (long int x = 0; x < NB_COLS + 2; x++)
+  if (!find_or_traverse (owner, key, MAP_GET_ONE, &rg, not_to_be_removed, 0) || !rg)
+    return;
+  Rectangle bbox = rg->r;
+  find_or_traverse (owner, key, bbox_g, &bbox, not_to_be_removed, 0);
+  printf ("(%li,%li)\n", bbox.origin.x, bbox.origin.y);
+  for (long int x = bbox.origin.x; x <= bbox.end.x + 2; x++)
     printf ("-");
   printf ("\n");
-  for (long int y = 0; y < NB_LINES; y++) {
+  for (long int y = bbox.origin.y; y <= bbox.end.y; y++) {
     printf ("|");
-    for (long int x = 0; x < NB_COLS; x++)
-      if ((!key && map_traverse (RectanglesInGroups, MAP_GET_ONE, &rg, includes_r, &(Rectangle){ { x, y }, { x, y } }))
-          || (key && map_find_key (RectanglesInGroups, key, MAP_GET_ONE, &rg, includes_r, &(Rectangle){ { x, y }, { x, y } })))
+    for (long int x = bbox.origin.x; x <= bbox.end.x; x++)
+      if (find_or_traverse (owner, key, MAP_GET_ONE, &rg, includes_r, &(Rectangle){ { x, y }, { x, y } }))
         printf ("%c", 'a' + (char)(rg->group % ('z' - 'a' + 1)));
       else
         printf (" ");
     printf ("|\n");
   }
-  for (long int x = 0; x < NB_COLS + 2; x++)
+  for (long int x = bbox.origin.x; x <= bbox.end.x + 2; x++)
     printf ("-");
   printf ("\n");
 }
 
+#define NB_ADD 70
+#define NB_LINES 12
+#define NB_COLS 12
 int
 main (void) {
+  map *RectanglesInGroups;
   assert ((RectanglesInGroups = map_create (g_key, g_comparator, 0, 0))); // Dictionary of groups
 
   for (size_t i = 0; i < NB_ADD; i++) {
     Point p = { random () % NB_COLS, random () % NB_LINES };
-    r_add ((Rectangle){ p, p });
+    r_add (RectanglesInGroups, (Rectangle){ p, p });
   }
 
-  // map_traverse (RectanglesInGroups, display, 0, not_to_be_removed, 0);
-  display_grid (0, 0);
-  printf ("%zu rectangles in %zu groups.\n", map_size (RectanglesInGroups), map_traverse_keys (RectanglesInGroups, 0, 0));
-  map_traverse_keys (RectanglesInGroups, display_grid, 0);
-  // map_traverse_keys (RectanglesInGroups, show_group, 0);
+  // map_traverse (RectanglesInGroups, show_rectangle, 0, not_to_be_removed, 0);
+  display_group (0, RectanglesInGroups);
+  printf ("%zu groups:\n", map_traverse_keys (RectanglesInGroups, 0, 0));
+  map_traverse_keys (RectanglesInGroups, display_group, RectanglesInGroups);
 
   map_traverse (RectanglesInGroups, MAP_REMOVE_ALL, free, 0, 0);
   map_destroy (RectanglesInGroups);
