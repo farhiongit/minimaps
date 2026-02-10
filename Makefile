@@ -7,7 +7,7 @@ LDFLAGS=
 #CHECK=time
 
 .PHONY: all
-all: README.md libmap.a libmap.so test_map libtimer.a libtimer.so test_timer test_aggr
+all: README.md libmap.a libmap.so test_map libtimer.a libtimer.so test_timer test_group_union_find test_group_bfs
 
 #### Examples
 .PHONY: test_map
@@ -34,17 +34,29 @@ examples/test_timer: LDFLAGS+=-L.
 examples/test_timer: LDLIBS=-ltimer
 examples/test_timer: examples/test_timer.c
 
-.PHONY: test_aggr
-test_aggr: libmap.so examples/aggr
+.PHONY: test_group_union_find
+test_group_union_find: libmap.so examples/test_group_union_find
 	@echo "********* $@ ************"
-	LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:. $(CHECK) ./examples/aggr
+	LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:. $(CHECK) ./examples/test_group_union_find
 	@echo "*********************"
 
-examples/aggr: CFLAGS+=-std=c23
-examples/aggr: CPPFLAGS+=-I.
-examples/aggr: LDFLAGS+=-L.
-examples/aggr: LDLIBS=-lmap
-examples/aggr: examples/aggr.c
+examples/test_group_union_find: CFLAGS+=-std=c23
+examples/test_group_union_find: CPPFLAGS+=-I.
+examples/test_group_union_find: LDFLAGS+=-L.
+examples/test_group_union_find: LDLIBS=-lmap
+examples/test_group_union_find: examples/test_group_union_find.c
+
+.PHONY: test_group_bfs
+test_group_bfs: libmap.so examples/test_group_bfs
+	@echo "********* $@ ************"
+	LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:. $(CHECK) ./examples/test_group_bfs
+	@echo "*********************"
+
+examples/test_group_bfs: CFLAGS+=-std=c23
+examples/test_group_bfs: CPPFLAGS+=-I.
+examples/test_group_bfs: LDFLAGS+=-L.
+examples/test_group_bfs: LDLIBS=-lmap
+examples/test_group_bfs: examples/test_group_bfs.c
 
 #### Libraries
 #C11 compliant, since <threads.h> is required.

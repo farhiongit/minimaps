@@ -219,7 +219,7 @@ extern const map_operator MAP_GET_ONE;
 // and, if the parameter `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward` is a non null pointer,
 // it sets the pointer `op_arg` to the data of this element.
 // `op_arg` **should be** the address of a pointer to type T, where `op_arg` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
-// Example: to get the last element, use `T *data = 0; if (map_traverse_backward (m, MAP_GET_ONE, 0, &data)) { ... }`
+// Example: to get the last element, use `T *data = 0; if (map_traverse_backward (m, MAP_GET_ONE, &data, 0, 0)) { ... }`
 
 // #### Map operator to retrieve and remove one element
 // This map operator simply retrieves and removes one element from the map.
