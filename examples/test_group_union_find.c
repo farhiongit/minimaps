@@ -8,7 +8,7 @@
 #undef NDEBUG           // for assert
 #include <assert.h>
 #include <stdlib.h>
-#include <time.h>       // for clock
+#include <time.h> // for clock
 
 //======================== square grid definition =================================
 #include "map.h"
@@ -228,7 +228,7 @@ int
 main (void) {
   static const size_t NB_POINTS = 70;
   static const long int NB_LINES = 12;
-  static const long int NB_COLS = 12 ;
+  static const long int NB_COLS = 12;
 
   clock_t t0 = clock ();
   map *pointsInGroups;
@@ -238,7 +238,7 @@ main (void) {
     Point p = { random () % NB_COLS, random () % NB_LINES };
     add_point (pointsInGroups, p); // Add points in disjoint sets of adjacent points.
   }
-  printf ("%g seconds.\n", ((double) (clock () - t0 )) / CLOCKS_PER_SEC);
+  printf ("%g seconds.\n", ((double)(clock () - t0)) / CLOCKS_PER_SEC);
 
   // Display results.
   // map_traverse (RectanglesInGroups, show_point, 0, not_to_be_removed, 0);
