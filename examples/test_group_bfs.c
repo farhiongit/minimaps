@@ -1,6 +1,7 @@
 #define _DEFAULT_SOURCE // for random
 #include <stdlib.h>
-#include <time.h> // for clock
+#include <time.h>       // for clock
+#include "grid_type.h"  // for group_bfs.c
 #include "group_bfs.c"
 #include "map.h"
 //================================= Test ===================================

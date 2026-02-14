@@ -6,7 +6,6 @@
 // The algorithm uses a BFS.
 #include <stdlib.h>
 //============================== Genericity ============================================
-#include "grid_type.h"
 #define TWO ADD (ONE, ONE)
 #define GT(a, b) LT ((b), (a))
 #define LE(a, b) (!(GT ((a), (b))))
