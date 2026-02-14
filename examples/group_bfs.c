@@ -34,7 +34,7 @@ typedef struct {
 
 [[maybe_unused]] static int
 visit_group (void *data, void *op_arg, int *remove) {
-  const Point adjacent[] = {
+  static const Point adjacent[] = {
     { ONE, ZERO },
     { ONE, ONE }, // Diagonally
   };
@@ -128,4 +128,3 @@ display_group (void *group, void *op_arg, int *remove) {
   printf ("\n");
   return 1;
 }
-
