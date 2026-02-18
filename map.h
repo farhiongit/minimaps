@@ -1,14 +1,16 @@
 /********************** # Map me ! *********************/
-// **A unprecedented MT-safe implementation of a map library that can manage maps, sets, sorted and unsorted lists and that can do it all with a minimalist interface.**
+// **A unprecedented MT-safe implementation of a map library that can manage maps, sets and sorted lists and that can do it all with a minimalist interface.**
 //
 // (c) L. Farhi, 2024.
 // Language: C (C11 or higher).
 
-/* This library manages sorted maps, sorted sets, sorted and unsorted lists, FIFO and LIFO queues (depending on how the "map" is created).
+/* This library manages sorted maps, sorted sets and sorted lists, FIFO and LIFO queues (depending on how the "map" is created).
    It uses a balanced binary tree for blazing fast insertion and removal (O(log n)) and a doubly-linked list for fast traversing (O(n)).
 
+> An outstanding, never seen before, fast, MT-safe implementation of map container that can do everything.
+
 The library is based on an original paradigm: all operations on the elements of the map are applied through searching or traversing the map.
-The interface has therefore only 8 functions to do everything needed (create, read, update, insert, count, move, remove, destroy, etc.), all of them being MT-safe:
+The interface has no more than 8 functions to do everything needed (create, read, update, insert, count, move, remove, destroy, etc.), all of them being MT-safe:
 
 - `map_create`
 - `map_destroy`
@@ -123,15 +125,14 @@ map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *ar
 
 /* 7 possible uses, depending on `property`, `cmp_key` and `get_key`:
 
-| Use            | `unicity` | `cmp_key` | `get_key` | Comment                                                                                                                       |
-| -              | -         | -         | -         | -                                                                                                                             |
-| Sorted map     | `1`       | Non-zero  | Non-zero  | Each key is unique in the map.                                                                                                |
-| Dictionary     | `0`       | Non-zero  | Non-zero  | Keys can have multiple entries in the map.                                                                                    |
-| Sorted set     | `1`       | Non-zero  | `0`       | Elements are unique. `cmp_key` applies to inserted `data` (the `data` is the key).                                            |
-| Sorted list    | `0`       | Non-zero  | `0`       | Equal elements are sorted in the order they were inserted. `cmp_key` applies to inserted `data` (the `data` is the key).      |
-| Unsorted list  | `0`       | `0`       | `0`       |                                                                                                                               |
-| FIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse (m, MAP_REMOVE_ONE, 0, &data)` to remove an element.          |
-| LIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse_backward (m, MAP_REMOVE_ONE, 0, &data)` to remove an element. |
+| Use            | `unicity` | `cmp_key` | `get_key` | Comment                                                                                                                          |
+| -              | -         | -         | -         | -                                                                                                                                |
+| Sorted map     | `1`       | Non-zero  | Non-zero  | Each key is unique in the map.                                                                                                   |
+| Dictionary     | `0`       | Non-zero  | Non-zero  | Keys can have multiple entries in the map.                                                                                       |
+| Sorted set     | `1`       | Non-zero  | `0`       | Elements are unique. `cmp_key` applies to inserted `data` (the `data` is the key).                                               |
+| Sorted list    | `0`       | Non-zero  | `0`       | Equal elements are sorted in the order they were inserted. `cmp_key` applies to inserted `data` (the `data` is the key).         |
+| FIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse (m, MAP_REMOVE_ONE, &data, 0, 0)` to remove an element.          |
+| LIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse_backward (m, MAP_REMOVE_ONE, &data, 0, 0)` to remove an element. |
 
 */
 
@@ -175,7 +176,7 @@ size_t map_find_key (struct map *map, const void *key, map_operator op, void *op
 // #### Traverse the elements of a map
 size_t map_traverse (map * map, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
 size_t map_traverse_backward (map * map, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
-// Traverse the elements of the map.
+// Traverse (iterate on) the elements of the map.
 // If the operator `op` is not null, it is applied on the data stored in the map, from the first element to the last (resp. the other way round), as long as the operator `op` returns non-zero.
 // If `op` is null, all the elements are traversed without any further effect than counting the elements selected by `sel`.
 // If the selector `sel` is not null, elements for which `sel (data)` (where `data` is an element previously inserted into the map) returns `0` are ignored. `map_traverse` (resp.`map_traverse_backward`) behaves as if the operator `op` would start with: `if (!sel (data, sel_arg)) return 1;`.
@@ -194,6 +195,7 @@ size_t map_traverse_backward (map * map, map_operator op, void *op_arg, map_sele
 // ### Traverse the keys of a map
 typedef void (*map_operator_on_key) (const void *key, void *op_arg);
 size_t map_traverse_keys (map * map, map_operator_on_key op, void *op_arg);
+// Iterates on the distinct keys of a map.
 // For each distinct key of a map, the operator `op` (if not null) is called once with the *key* (as returned by the declared `get_key` passed to `map_create`) passed as its first element, and `op_arg` as its second.
 // Returns `0` if `get_key` is `0` (with `errno` set to `EPERM`), the number of keys otherwise.
 
@@ -234,7 +236,7 @@ extern const map_operator MAP_REMOVE_ONE;
 If `m` is a map of elements of type T and `sel` a map_selector, the following piece of code will remove and retrieve the data of the first element selected by `sel`:
 
   T *data = 0;  // `data` is a *pointer* to the type stored in the map, set to 0.
-  if (map_traverse (m, MAP_REMOVE_ONE, sel, &data) && data)  // A *pointer to the pointer* `data` is passed to map_traverse.
+  if (map_traverse (m, MAP_REMOVE_ONE, &data, sel, 0) && data)  // A *pointer to the pointer* `data` is passed to map_traverse.
   {
     // `data` can thread-safely be used to work with.
     ...
