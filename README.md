@@ -103,7 +103,7 @@ The type of a user-defined function that compares two keys of elements of a map.
 
 | Type definition |
 | - |
-| `int (*map_key_comparator) (const void *key_a, const void *key_b, void *arg)` |
+| `int (*map_key_comparator) (const void *key_a, const void *key_b, const void *arg)` |
 
 `key_a` and `key_b` are pointers to keys, as they would be returned by a function of type `map_key_extractor`.
 
@@ -185,7 +185,7 @@ as soon as the operator returns `0`, it stops `map_traverse`, `map_traverse_back
 ## Interface
 ### Create a map
 ```c
-map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *arg, int unicity);
+map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, const void *cmp_arg, int unicity);
 ```
 Returns `0` if the map could not be allocated (and `errno` set to `ENOMEM`).
 
@@ -222,6 +222,9 @@ Otherwise, equal elements are sorted in the order they were inserted.
 | Sorted list    | `0`       | Non-zero  | `0`       | Equal elements are sorted in the order they were inserted. `cmp_key` applies to inserted `data` (the `data` is the key).         |
 | FIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse (m, MAP_REMOVE_ONE, &data, 0, 0)` to remove an element.          |
 | LIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse_backward (m, MAP_REMOVE_ONE, &data, 0, 0)` to remove an element. |
+
+For unsorted lists, sets or maps, a generic comparator `MAP_GENERIC_CMP` is provided.
+
 
 
 ### Destroy a map
@@ -367,6 +370,28 @@ Returns `0` if `get_key` is `0` (with `errno` set to `EPERM`), the number of key
 ### Predefined useful and usual helper operators for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
 
 
+#### Generic comparator for unordered types.
+
+
+```c
+extern const map_key_comparator MAP_GENERIC_CMP;
+```
+For unsorted lists, sets or maps, a generic comparator is provided.
+
+
+This can be used when elements can be compared equal but can not be ordered with a lower than operator.
+
+
+
+- `MAP_GENERIC_CMP` is passed as the second argument to `map_create`.
+
+
+- The address of a value equal to the size of the key must be passed as third argument to `map_create`:
+
+For instance, for a set of objets of type SpaceTimeRegion:
+
+   static const size_t str_size = sizeof (SpaceTimeRegion);
+   map *m = map_create (0, MAP_GENERIC_CMP, &str_size, 1);
 `map_operator` functions passed to `map_find_key`, `map_traverse` and `map_traverse_backward` can be user-defined according to one's need.
 
 

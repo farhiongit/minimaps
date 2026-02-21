@@ -65,7 +65,7 @@ typedef const void *(*map_key_extractor) (void *data);
 
 // ### Key comparator
 // The type of a user-defined function that compares two keys of elements of a map.
-typedef int (*map_key_comparator) (const void *key_a, const void *key_b, void *arg);
+typedef int (*map_key_comparator) (const void *key_a, const void *key_b, const void *arg);
 // `key_a` and `key_b` are pointers to keys, as they would be returned by a function of type `map_key_extractor`.
 // A comparison function must return an integer less than, equal to, or greater than zero if the first argument is considered to be respectively less than, equal to, or greater than the second.
 // The third argument `arg` receives the pointer that was passed to `map_create`.
@@ -111,7 +111,7 @@ typedef int (*map_operator) (void *data, void *op_arg, int *remove);
 // ## Interface
 
 // ### Create a map
-map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *arg, int unicity);
+map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, const void *cmp_arg, int unicity);
 // Returns `0` if the map could not be allocated (and `errno` set to `ENOMEM`).
 // Otherwise, returns a pointer to the created map.
 // If not `0`, the comparison function `cmp_key` must return an integer less than, equal to, or greater than zero
@@ -134,6 +134,7 @@ map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *ar
 | FIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse (m, MAP_REMOVE_ONE, &data, 0, 0)` to remove an element.          |
 | LIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse_backward (m, MAP_REMOVE_ONE, &data, 0, 0)` to remove an element. |
 
+For unsorted lists, sets or maps, a generic comparator `MAP_GENERIC_CMP` is provided.
 */
 
 // ### Destroy a map
@@ -198,6 +199,21 @@ size_t map_traverse_keys (map * map, map_operator_on_key op, void *op_arg);
 // Iterates on the distinct keys of a map.
 // For each distinct key of a map, the operator `op` (if not null) is called once with the *key* (as returned by the declared `get_key` passed to `map_create`) passed as its first element, and `op_arg` as its second.
 // Returns `0` if `get_key` is `0` (with `errno` set to `EPERM`), the number of keys otherwise.
+
+// ### Predefined helper comparator for use with `map_create`.
+
+// #### Generic comparator for unordered types.
+extern const map_key_comparator MAP_GENERIC_CMP;
+// For unsorted lists, sets or maps, a generic comparator is provided. It is a wrapper around `memcmp`.
+// This can be used when elements can be compared equal but can not be ordered with a lower than operator.
+//
+// - `MAP_GENERIC_CMP` is passed as the second argument to `map_create`.
+// - The address of a value equal to the size of the key must be passed as third argument to `map_create`:
+//
+// For instance, for a set of objets of type, say, `SpaceTimeRegion`:
+//
+//    static const size_t size = sizeof (SpaceTimeRegion);
+//    map *m = map_create (0, MAP_GENERIC_CMP, &size, 1);
 
 // ### Predefined useful and usual helper operators for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
 

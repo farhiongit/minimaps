@@ -23,7 +23,7 @@
 #endif
 
 static int
-cmpstringp (const void *p1, const void *p2, void *arg)
+cmpstringp (const void *p1, const void *p2, const void *arg)
 {
   /* The actual arguments to this function are "pointers to
      pointers to char", but strcmp(3) arguments are "pointers
@@ -158,7 +158,7 @@ test1 (void)
 }
 
 static int
-cmpip (const void *p1, const void *p2, void *arg)
+cmpip (const void *p1, const void *p2, const void *arg)
 {
   (void) arg;
   return *(const int *) p1 < *(const int *) p2 ? -1 : *(const int *) p1 > *(const int *) p2 ? 1 : 0;
@@ -297,7 +297,7 @@ get_word (void *data)           // 'data' is supposed to be a pointer to 'struct
 }
 
 static int
-cmp_word (const void *p1, const void *p2, void *arg)
+cmp_word (const void *p1, const void *p2, const void *arg)
 {
   (void) arg;
   const struct word *w1 = p1;
@@ -378,7 +378,7 @@ get_crossword_length (void *data)
 }
 
 static int
-cmp_crossword (const void *p1, const void *p2, void *arg)
+cmp_crossword (const void *p1, const void *p2, const void *arg)
 {
   (void) arg;
   const size_t l1 = *(const size_t *) p1;

@@ -18,7 +18,7 @@ typedef struct
 } Point;
 
 [[maybe_unused]] static int
-p_comparator (const void *key_a, const void *key_b, void *arg) {
+p_comparator (const void *key_a, const void *key_b, const void *arg) {
   (void)arg;
   const Point pa = *(const Point *)key_a;
   const Point pb = *(const Point *)key_b;

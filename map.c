@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 #include "map.h"
 
 struct map_elem
@@ -25,7 +26,7 @@ struct map
   mtx_t mutex;
   map_key_comparator cmp_key;
   map_key_extractor get_key;
-  void *arg;
+  const void *cmp_arg;
   int uniqueness;               // Property
   size_t nb_balancing;
   size_t nb_elem;
@@ -38,7 +39,7 @@ _MAP_KEY_IS_DATA (void *data)
 }
 
 struct map *
-map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *arg, int unicity)
+map_create (map_key_extractor get_key, map_key_comparator cmp_key, const void *arg, int unicity)
 {
   if (!get_key && cmp_key)
     get_key = _MAP_KEY_IS_DATA;
@@ -58,7 +59,7 @@ map_create (map_key_extractor get_key, map_key_comparator cmp_key, void *arg, in
   l->get_key = get_key;
   l->cmp_key = cmp_key;
   l->uniqueness = unicity;
-  l->arg = arg;
+  l->cmp_arg = arg;
   // mtx_recursive : the SAME thread can lock (and unlock) the mutex several times. See https://en.wikipedia.org/wiki/Reentrant_mutex for more.
   // Therefore, map_find_key, map_traverse, map_traverse_backward and map_insert_data can call each other.
   if (mtx_init (&l->mutex, mtx_plain | mtx_recursive) != thrd_success)
@@ -485,7 +486,7 @@ map_insert_data (struct map *l, void *data)
   }
   else
     while (1)
-      if ((cmp = l->cmp_key ? l->cmp_key (new->key_from_data, iter->key_from_data, l->arg) : 0) < 0)
+      if ((cmp = l->cmp_key ? l->cmp_key (new->key_from_data, iter->key_from_data, l->cmp_arg) : 0) < 0)
       {
         is_last = 0;
         if (iter->lt)
@@ -741,7 +742,7 @@ map_find_key (struct map *l, const void *key, map_operator op, void *op_arg, map
   int cmp_key;
   struct map_elem *iter = l->root;
   while (iter)
-    if ((cmp_key = l->cmp_key (key, iter->key_from_data, l->arg)) < 0)
+    if ((cmp_key = l->cmp_key (key, iter->key_from_data, l->cmp_arg)) < 0)
       iter = iter->lt;
     else if (cmp_key == 0)
     {
@@ -852,3 +853,11 @@ _MAP_EXISTS_ONE (void *data, void *context, int *remove)
 
 const map_operator MAP_EXISTS_ONE = _MAP_EXISTS_ONE;
 const map_operator MAP_COUNT = 0;
+
+static int
+map_generic_cmp (const void *key_a, const void *key_b, const void *arg) {
+  const size_t size = *(const size_t *)arg;
+  return memcmp (key_a, key_b, size);
+}
+
+const map_key_comparator MAP_GENERIC_CMP = map_generic_cmp;

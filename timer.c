@@ -25,7 +25,7 @@ timer_get_key (void *pa)
 }
 
 static int
-timer_cmp_key (const void *pa, const void *pb, void *arg)
+timer_cmp_key (const void *pa, const void *pb, const void *arg)
 {
   (void) arg;
   const struct timespec *a = pa;

@@ -54,7 +54,7 @@ g_key (void *data) {
 }
 
 static int
-g_comparator (const void *key_a, const void *key_b, void *arg) {
+g_comparator (const void *key_a, const void *key_b, const void *arg) {
   (void)arg;
   const size_t ga = *(const size_t *)key_a;
   const size_t gb = *(const size_t *)key_b;
