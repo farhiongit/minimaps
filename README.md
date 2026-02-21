@@ -367,7 +367,7 @@ For each distinct key of a map, the operator `op` (if not null) is called once w
 Returns `0` if `get_key` is `0` (with `errno` set to `EPERM`), the number of keys otherwise.
 
 
-### Predefined useful and usual helper operators for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
+### Predefined helper comparator for use with `map_create`.
 
 
 #### Generic comparator for unordered types.
@@ -376,7 +376,7 @@ Returns `0` if `get_key` is `0` (with `errno` set to `EPERM`), the number of key
 ```c
 extern const map_key_comparator MAP_GENERIC_CMP;
 ```
-For unsorted lists, sets or maps, a generic comparator is provided.
+For unsorted lists, sets or maps, a generic comparator is provided. It is a wrapper around `memcmp`.
 
 
 This can be used when elements can be compared equal but can not be ordered with a lower than operator.
@@ -388,10 +388,13 @@ This can be used when elements can be compared equal but can not be ordered with
 
 - The address of a value equal to the size of the key must be passed as third argument to `map_create`:
 
-For instance, for a set of objets of type SpaceTimeRegion:
+For instance, for a set of objets of type, say, `SpaceTimeRegion`:
 
-   static const size_t str_size = sizeof (SpaceTimeRegion);
-   map *m = map_create (0, MAP_GENERIC_CMP, &str_size, 1);
+   static const size_t size = sizeof (SpaceTimeRegion);
+   map *m = map_create (0, MAP_GENERIC_CMP, &size, 1);
+### Predefined useful and usual helper operators for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
+
+
 `map_operator` functions passed to `map_find_key`, `map_traverse` and `map_traverse_backward` can be user-defined according to one's need.
 
 
