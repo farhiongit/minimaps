@@ -18,7 +18,19 @@ This library manages sorted maps, sorted sets and sorted lists, FIFO and LIFO qu
 
 
 
-The library is based on an original paradigm: all operations on the elements of the map are applied through searching or traversing the map.
+It all came from a simple idea:
+
+- Why iterating on (traversing) elements of a collection if not for operating on them ?
+- To operate on these elements, it is necessary to iterate on them first.
+
+
+
+Iterating and operating are two bound actions. This departs from traditional approach found in usual collections.
+
+
+
+Therefore, the library is based on an original paradigm: all operations on the elements of the map are applied through searching or traversing the map.
+
 
 
 The interface has no more than 8 functions to do everything needed (create, read, update, insert, count, move, remove, destroy, etc.), all of them being MT-safe:
@@ -35,10 +47,11 @@ The interface has no more than 8 functions to do everything needed (create, read
 They are detailed below.
 
 
-> All calls are MT-safe: concurrent threads using the same "map" will synchronise (block and wait for each other).
+
+- All calls are MT-safe: thread safety comes naturally and for free by design ; concurrent threads using the same "map" will synchronise (block and wait for each other).
 
 
-> All calls are non-recursive.
+- All calls are non-recursive.
 
 
 
@@ -76,6 +89,12 @@ The key of the map is extracted from the data stored in it (generally but not ne
 | - |
 | `const void *(*map_key_extractor) (void *data)` |
 
+> `data` is a pointer to `T`, where `T` is the type stored in the map.
+
+
+> Should returns a pointer to the key component of `T`, where `T` is the type stored in the map.
+
+
 > Functions of type `map_key_extractor` should not allocate memory dynamically.
 
 
@@ -105,7 +124,7 @@ The type of a user-defined function that compares two keys of elements of a map.
 | - |
 | `int (*map_key_comparator) (const void *key_a, const void *key_b, const void *arg)` |
 
-`key_a` and `key_b` are pointers to keys, as they would be returned by a function of type `map_key_extractor`.
+> `key_a` and `key_b` are pointers to keys, as they would be returned by a function of type `map_key_extractor`.
 
 
 A comparison function must return an integer less than, equal to, or greater than zero if the first argument is considered to be respectively less than, equal to, or greater than the second.
@@ -141,6 +160,9 @@ The type of a user-defined function that selects elements while traversing a map
 The data of the element of the map is passed as the first argument of the map_selector.
 
 
+> `data` is a pointer to `T`, where `T` is the type stored in the map.
+
+
 The second argument `sel_arg` receives the pointer passed to `map_traverse` and `map_traverse_backward`.
 
 
@@ -160,6 +182,12 @@ picked by `map_traverse`, `map_traverse_backward` or `map_find_key`.
 The data of the element of the map is passed as the first argument of the `map_operator`.
 
 
+> `data` is a pointer to `T`, where `T` is the type stored in the map.
+
+
+> `data` does not belong to the map.
+
+
 The second argument `op_arg` receives the pointer passed to `map_traverse`, `map_traverse_backward` and `map_find_key`.
 
 
@@ -170,9 +198,6 @@ If (and only if) the operator sets `*remove` to a non-zero value,
 
   - the element will be removed from the map thread-safely ;
   - the operator **should** keep track and ultimately free the data passed to it if it was allocated dynamically before insertion into the map (otherwise data would be lost in memory leaks).
-
-
-> `data` does not belong to the map.
 
 
 The `map_operator` should return `1` if the operator should be applied on further elements of the map, `0` otherwise. In other words,
@@ -260,6 +285,9 @@ int map_insert_data (map *, void *data);
 Adds a previously allocated data into map and returns `1` if the element was added, `0` otherwise.
 
 
+> `data` should be a pointer to `T`, where `T` is the type stored in the map.
+
+
 > `0` will be returned if `unicity` was set to `1` at creation of the map and a `data` with the same key is already in the map.
 
 
@@ -272,11 +300,17 @@ Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.
 > About one million elements can be inserted and sorted per second.
 
 
+If `data` is a pointer to memory allocated dynamically, a destructor should be passed as an argument to operator `MAP_REMOVE_ALL` if used.
+
+
 ### Retrieve and remove elements from a map
 #### Find an element from its key
 ```c
 size_t map_find_key (struct map *map, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
 ```
+`key` is a pointer to a key, as returned by a function of type `map_key_extractor`.
+
+
 If `get_key` (as defined at map creation) is not null, applies `op` on the data of the elements in the map that matches the `key` (for which `cmp_key (get_key (data), key)` returns `0`), as long as `op` returns non-zero.
 
 
@@ -361,6 +395,9 @@ size_t map_traverse_keys (map * map, map_operator_on_key op, void *op_arg);
 Iterates on the distinct keys of a map.
 
 
+> `key` is a pointer to a key, as returned by a function of type `map_key_extractor`.
+
+
 For each distinct key of a map, the operator `op` (if not null) is called once with the *key* (as returned by the declared `get_key` passed to `map_create`) passed as its first element, and `op_arg` as its second.
 
 
@@ -388,7 +425,7 @@ This can be used when elements can be compared equal but can not be ordered with
 
 - The address of a value equal to the size of the key must be passed as third argument to `map_create`:
 
-For instance, for a set of objets of type, say, `SpaceTimeRegion`:
+For instance, for a set of objects of type, say, `SpaceTimeRegion`:
 
    static const size_t size = sizeof (SpaceTimeRegion);
    map *m = map_create (0, MAP_GENERIC_CMP, &size, 1);
