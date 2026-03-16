@@ -78,7 +78,7 @@ The map stores pointers to allocated data:
 	  void *data;
 	
 ### Key
-The key of the map is extracted from the data stored in it (generally but not necessarily a subset of it). A user-defined function of type `map_key_extractor` (passed to `map_create`) can be used to extract this subset.
+The key of the map is extracted from the data managed by it (generally but not necessarily a subset of it). A user-defined function of type `map_key_extractor` (passed to `map_create`) can be used to extract this subset.
 
 
 `map_key_extractor` is the type of the user-defined function that should return a pointer to the the part of `data` that contains the key of the map.
@@ -89,10 +89,10 @@ The key of the map is extracted from the data stored in it (generally but not ne
 | - |
 | `const void *(*map_key_extractor) (void *data)` |
 
-> `data` is a pointer to `T`, where `T` is the type stored in the map.
+> `data` is a pointer to `T`, where `T` is the type managed by the map. Use `(T *)data` to access to its content.
 
 
-> Should returns a pointer to the key component of `T`, where `T` is the type stored in the map.
+Should returns a pointer to the key component of `T`, where `T` is the type managed by the map.
 
 
 > Functions of type `map_key_extractor` should not allocate memory dynamically.
@@ -102,7 +102,7 @@ Example:
 
 	  enum class { NOUN, VERB, ADJECTIVE, ADVERB, PRONOUN, DETERMINER, PREPOSITION, CONJUNCTION, INTERJECTION };
 	  enum gender { MASCULINE, FEMININE, NEUTER };
-	  struct entry  // The type of the data stored in the map
+	  struct entry  // The type of the data managed by the map
 	  {
 	    struct word { char *spelling ; enum class class ; } word;
 	    enum gender gender ;
@@ -124,7 +124,10 @@ The type of a user-defined function that compares two keys of elements of a map.
 | - |
 | `int (*map_key_comparator) (const void *key_a, const void *key_b, const void *arg)` |
 
-> `key_a` and `key_b` are pointers to keys, as they would be returned by a function of type `map_key_extractor`.
+> If `map_key_extractor` is not `0`, `key_a` and `key_b` are pointers to keys, as they would be returned by a function of type `map_key_extractor`. Use `(K *)data` to access to its content.
+
+
+> Otherwise, `key_a` and `key_b` are pointers to `T`, where `T` is the type managed by the map. Use `(T *)data` to access to its content.
 
 
 A comparison function must return an integer less than, equal to, or greater than zero if the first argument is considered to be respectively less than, equal to, or greater than the second.
@@ -160,7 +163,7 @@ The type of a user-defined function that selects elements while traversing a map
 The data of the element of the map is passed as the first argument of the map_selector.
 
 
-> `data` is a pointer to `T`, where `T` is the type stored in the map.
+> `data` is a pointer to `T`, where `T` is the type managed by the map. Use `(T *)data` to access to its content.
 
 
 The second argument `sel_arg` receives the pointer passed to `map_traverse` and `map_traverse_backward`.
@@ -182,10 +185,7 @@ picked by `map_traverse`, `map_traverse_backward` or `map_find_key`.
 The data of the element of the map is passed as the first argument of the `map_operator`.
 
 
-> `data` is a pointer to `T`, where `T` is the type stored in the map.
-
-
-> `data` does not belong to the map.
+> `data` is a pointer to `T`, where `T` is the type managed by the map. Use `(T *)data` to access to its content.
 
 
 The second argument `op_arg` receives the pointer passed to `map_traverse`, `map_traverse_backward` and `map_find_key`.
@@ -197,7 +197,7 @@ The third argument `remove` receives a non-null pointer for which `*remove` is s
 If (and only if) the operator sets `*remove` to a non-zero value,
 
   - the element will be removed from the map thread-safely ;
-  - the operator **should** keep track and ultimately free the data passed to it if it was allocated dynamically before insertion into the map (otherwise data would be lost in memory leaks).
+  - the operator **should** ultimately free the data passed to it if it was allocated dynamically before insertion into the map with `map_insert_data` (otherwise data would be lost in memory leaks).
 
 
 The `map_operator` should return `1` if the operator should be applied on further elements of the map, `0` otherwise. In other words,
@@ -285,13 +285,16 @@ int map_insert_data (map *, void *data);
 Adds a previously allocated data into map and returns `1` if the element was added, `0` otherwise.
 
 
-> `data` should be a pointer to `T`, where `T` is the type stored in the map.
+> `data` should be a pointer to `T`, where `T` is the type managed by the map.
 
 
-> `0` will be returned if `unicity` was set to `1` at creation of the map and a `data` with the same key is already in the map.
+> The map keeps track of `data` but `data` does not belong to (is not copied and stored in) the map after insertion. `*data` should persist until it is removed from the map (using `map_traverse` or `map_find_key`).
 
 
-> `data` does not belong to the map after insertion.
+> If `data` is a pointer to memory allocated dynamically, a destructor should be passed as an argument to operator `MAP_REMOVE_ALL` in case it would be used.
+
+
+`0` will be returned if `unicity` was set to `1` at creation of the map and a `data` with the same key is already in the map.
 
 
 Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.
@@ -300,15 +303,12 @@ Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.
 > About one million elements can be inserted and sorted per second.
 
 
-If `data` is a pointer to memory allocated dynamically, a destructor should be passed as an argument to operator `MAP_REMOVE_ALL` if used.
-
-
 ### Retrieve and remove elements from a map
 #### Find an element from its key
 ```c
 size_t map_find_key (struct map *map, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
 ```
-`key` is a pointer to a key, as returned by a function of type `map_key_extractor`.
+> `key` is a pointer to a key, as returned by a function of type `map_key_extractor` (if set) or a pointer to a `T` (if `map_key_extractor` is not set), where `T` is the type managed by the map.
 
 
 If `get_key` (as defined at map creation) is not null, applies `op` on the data of the elements in the map that matches the `key` (for which `cmp_key (get_key (data), key)` returns `0`), as long as `op` returns non-zero.
@@ -333,8 +333,8 @@ Returns the number of elements of the map that match `sel` (if set) and on which
 Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.
 
 
-> `cmp_key` should have been previously set by `map_create` (otherwise, `0` is returned and `errno` is set to `EPERM`.)
-> If `op` is null, `map_find_key` simply counts and returns the number of matching elements with the `key`.
+`cmp_key` should have been previously set by `map_create` (otherwise, `0` is returned and `errno` is set to `EPERM`.)
+If `op` is null, `map_find_key` simply counts and returns the number of matching elements with the `key`.
 
 
 > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `op_arg` argument). Therefore,
@@ -351,7 +351,7 @@ size_t map_traverse_backward (map * map, map_operator op, void *op_arg, map_sele
 Traverse (iterate on) the elements of the map.
 
 
-If the operator `op` is not null, it is applied on the data stored in the map, from the first element to the last (resp. the other way round), as long as the operator `op` returns non-zero.
+If the operator `op` is not null, it is applied on the data managed by the map, from the first element to the last (resp. the other way round), as long as the operator `op` returns non-zero.
 
 
 If `op` is null, all the elements are traversed without any further effect than counting the elements selected by `sel`.
@@ -370,7 +370,7 @@ Returns the number of elements of the map that match `sel` (if set) and on which
 Complexity : n. MT-safe. Non-recursive.
 
 
-> If `op` is null, `map_traverse` and `map_traverse_backward` simply count and return the number of matching elements with the selector `sel` (if set). If `op` and `sel `are null, `map_traverse` and `map_traverse_backward` simply count and return the number of elements in the map.
+If `op` is null, `map_traverse` and `map_traverse_backward` simply count and return the number of matching elements with the selector `sel` (if set). If `op` and `sel `are null, `map_traverse` and `map_traverse_backward` simply count and return the number of elements in the map.
 
 
 > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `op_arg` argument). Therefore,
@@ -416,14 +416,12 @@ extern const map_key_comparator MAP_GENERIC_CMP;
 For unsorted lists, sets or maps, a generic comparator is provided. It is a wrapper around `memcmp`.
 
 
-This can be used when elements can be compared equal but can not be ordered with a lower than operator.
-
-
+This can be used with `map_create` when elements can be compared equal but can not be ordered with a lower than operator:
 
 - `MAP_GENERIC_CMP` is passed as the second argument to `map_create`.
 
 
-- The address of a value equal to the size of the key must be passed as third argument to `map_create`:
+- The address of a persistent value equal to the size of the key must be passed as third argument to `map_create`:
 
 For instance, for a set of objects of type, say, `SpaceTimeRegion`:
 
@@ -472,7 +470,7 @@ and, if the parameter `op_arg` of `map_find_key`, `map_traverse` or `map_travers
 it sets the pointer `op_arg` to the data of this element.
 
 
-`op_arg` **should be** the address of a pointer to type T, where `op_arg` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
+> `op_arg` should be the address of an allocated pointer to type T (`&a` where `T* a = 0`), where `op_arg` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
 
 
 Example: to get the last element, use `T *data = 0; if (map_traverse_backward (m, MAP_GET_ONE, &data, 0, 0)) { ... }`
@@ -491,14 +489,17 @@ and, if the parameter `op_arg` of `map_find_key`, `map_traverse` or `map_travers
 it sets the pointer `op_arg` to the data of this element.
 
 
-`op_arg` **should be** `0` or the address of a pointer to type T set to 0, where `op_arg` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
+> `op_arg` should be `0` or the address of an allocated pointer to type T set to 0 (`&a` where `T* a = 0`), where `op_arg` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
+
+
+> `a` **should** ultimately free the data passed to it if it was allocated dynamically before insertion into the map with `map_insert_data` (otherwise data would be lost in memory leaks).
 
 
 Example
 
 If `m` is a map of elements of type T and `sel` a map_selector, the following piece of code will remove and retrieve the data of the first element selected by `sel`:
 
-	  T *data = 0;  // `data` is a *pointer* to the type stored in the map, set to 0.
+	  T *data = 0;  // `data` is a *pointer* to the type managed by the map, set to 0.
 	  if (map_traverse (m, MAP_REMOVE_ONE, &data, sel, 0) && data)  // A *pointer to the pointer* `data` is passed to map_traverse.
 	  {
 	    // `data` can thread-safely be used to work with.
