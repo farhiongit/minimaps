@@ -174,8 +174,9 @@ int map_insert_data (map *, void *data);
 // > `data` should be a pointer to `T`, where `T` is the type managed by the map.
 // > The map keeps track of `data` but `data` does not belong to (is not copied and stored in) the map after insertion. `*data` should persist until it is removed from the map (using `map_traverse` or `map_find_key`).
 // > If `data` is a pointer to memory allocated dynamically, a destructor should be passed as an argument to operator `MAP_REMOVE_ALL` in case it would be used.
-// `0` will be returned if `unicity` was set to `1` at creation of the map and a `data` with the same key is already in the map.
-// Complexity : log n (1 if `cmp_key` or `get_key` is `0`). MT-safe. Non-recursive.
+// `0` will be returned if `unicity` was set to `1` at creation of the map and a data with the same key is already in the map (`data` is not inserted in the map).
+// > If `map_insert_data` returns 0 and `data` was allocated dynamically, as `data` is not inserted in the map, it won't be tracked. If must then be free'd by the caller.
+// Complexity : log n (1 if `cmp_key` is `0`). MT-safe. Non-recursive.
 // > About one million elements can be inserted and sorted per second.
 
 // ### Retrieve and remove elements from a map
