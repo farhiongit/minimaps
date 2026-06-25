@@ -1,21 +1,23 @@
-#include <unistd.h>
+#include "timer.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "timer.h"
+#include <unistd.h>
 
 static double TWO = 2;
 static double THREE = 3;
 
 static void
-hello (void *arg)
-{
-  printf ("\nTimer callback: Hello (after %g seconds since creation).\n\n", *(double *) arg);
+hello (void *arg) {
+  printf ("\nTimer callback: Hello (after %g seconds since creation).\n\n", *(double *)arg);
 }
 
 int
-main (void)
-{
-#define logtime do { timespec_get (&t, TIME_UTC); printf ("%.3f s: ", difftime (t.tv_sec, t0.tv_sec) + 1.e-9 * (double) (t.tv_nsec - t0.tv_nsec)); } while (0)
+main (void) {
+#define logtime                                                                                     \
+  do {                                                                                              \
+    timespec_get (&t, TIME_UTC);                                                                    \
+    printf ("%.3f s: ", difftime (t.tv_sec, t0.tv_sec) + 1.e-9 * (double)(t.tv_nsec - t0.tv_nsec)); \
+  } while (0)
   struct timespec t0, t;
   timespec_get (&t0, TIME_UTC);
   logtime;
@@ -37,7 +39,7 @@ main (void)
     fprintf (stderr, "ERROR: Could not remove the timer ending in %g seconds.\n", TWO);
   logtime;
   printf ("Wait %g seconds from now.\n", 3.);
-  sleep (3);                    // Keep the program alive until the timer has timed out.
+  sleep (3); // Keep the program alive until the timer has timed out.
   logtime;
   printf ("Exit.\n");
 }

@@ -64,33 +64,33 @@ g_comparator (const void *key_a, const void *key_b, const void *arg) {
 }
 
 static int
-equals_p (const void *data, void *sel_arg) {
+equals_p (const void *data, void *sel_arg, const void *) {
   const PointInGroup *rg = data;
   Point *p = sel_arg;
   return !rg->to_be_removed && rg->p.x == p->x && rg->p.y == p->y;
 }
 
 static int
-touches_p (const void *data, void *sel_arg) {
+touches_p (const void *data, void *sel_arg, const void *) {
   const PointInGroup *rg = data;
   Point *p = sel_arg;
   return !rg->to_be_removed && p_is_adjacent (rg->p, *p);
 }
 
 static int
-to_be_removed (const void *data, void *sel_arg) {
+to_be_removed (const void *data, void *sel_arg, const void *) {
   const PointInGroup *rg = data;
   (void)sel_arg;
   return rg->to_be_removed;
 }
 
 static int
-not_to_be_removed (const void *data, void *sel_arg) {
-  return !to_be_removed (data, sel_arg);
+not_to_be_removed (const void *data, void *sel_arg, const void *context) {
+  return !to_be_removed (data, sel_arg, context);
 }
 
 static int
-onlyonce_ptr_g (void *data, void *op_arg, int *remove) {
+onlyonce_ptr_g (void *data, void *op_arg, int *remove, const void *) {
   (void)remove;
   PointInGroup *rg = data;
   size_t **group = (size_t **)op_arg;
@@ -105,7 +105,7 @@ onlyonce_ptr_g (void *data, void *op_arg, int *remove) {
 }
 
 static int
-changegroup_g (void *data, void *new_group, int *remove) {
+changegroup_g (void *data, void *new_group, int *remove, const void *) {
   PointInGroup *rg = data;
   assert (rg->group != *(size_t *)new_group);
   // A key MUST not be changed in place:
@@ -122,7 +122,7 @@ changegroup_g (void *data, void *new_group, int *remove) {
 }
 
 static int
-regroup_g (void *data, void *op_arg, int *remove) {
+regroup_g (void *data, void *op_arg, int *remove, const void *) {
   (void)remove;
   PointInGroup *rg = data;
   size_t *ptr_g = op_arg;
@@ -164,7 +164,7 @@ add_point (map *owner, Point p) {
 
 //========================= display groups ================================
 [[maybe_unused]] static int
-bbox_r (void *data, void *op_arg, int *remove) {
+bbox_r (void *data, void *op_arg, int *remove, const void *) {
   (void)remove;
   PointInGroup *rg = data;
   Point p = rg->p;
@@ -181,7 +181,7 @@ bbox_r (void *data, void *op_arg, int *remove) {
 }
 
 [[maybe_unused]] static int
-show_point (void *data, void *op_arg, int *remove) {
+show_point (void *data, void *op_arg, int *remove, const void *) {
   (void)op_arg;
   (void)remove;
   PointInGroup *p = data;
@@ -190,7 +190,7 @@ show_point (void *data, void *op_arg, int *remove) {
 }
 
 [[maybe_unused]] static size_t
-find_or_traverse (map *m, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg) {
+find_or_traverse (map *m, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg, const void *) {
   if (key)
     return map_find_key (m, key, op, op_arg, sel, sel_arg);
   else
@@ -198,13 +198,13 @@ find_or_traverse (map *m, const void *key, map_operator op, void *op_arg, map_se
 }
 
 [[maybe_unused]] static void
-display_group (const void *key, void *op_arg) {
+display_group (const void *key, void *op_arg, const void *context) {
   map *owner = op_arg;
   PointInGroup *rg;
-  if (!find_or_traverse (owner, key, MAP_GET_ONE, &rg, not_to_be_removed, 0) || !rg)
+  if (!find_or_traverse (owner, key, MAP_GET_ONE, &rg, not_to_be_removed, 0, context) || !rg)
     return;
   Rectangle bbox = (Rectangle){ rg->p, rg->p };
-  find_or_traverse (owner, key, bbox_r, &bbox, not_to_be_removed, 0);
+  find_or_traverse (owner, key, bbox_r, &bbox, not_to_be_removed, 0, context);
   printf ("(%li,%li)\n", bbox.origin.x, bbox.origin.y);
   for (long int x = bbox.origin.x; x <= bbox.end.x + 2; x++)
     printf ("-");
@@ -212,7 +212,7 @@ display_group (const void *key, void *op_arg) {
   for (long int y = bbox.origin.y; y <= bbox.end.y; y++) {
     printf ("|");
     for (long int x = bbox.origin.x; x <= bbox.end.x; x++)
-      if (find_or_traverse (owner, key, MAP_GET_ONE, &rg, equals_p, &(Point){ x, y }))
+      if (find_or_traverse (owner, key, MAP_GET_ONE, &rg, equals_p, &(Point){ x, y }, context))
         printf ("%c", 'a' + (char)(rg->group % ('z' - 'a' + 1)));
       else
         printf (" ");
@@ -242,7 +242,7 @@ main (void) {
 
   // Display results.
   // map_traverse (RectanglesInGroups, show_point, 0, not_to_be_removed, 0);
-  display_group (0, pointsInGroups);
+  display_group (0, pointsInGroups, 0);
   printf ("%zu groups:\n", map_traverse_keys (pointsInGroups, 0, 0));
   map_traverse_keys (pointsInGroups, display_group, pointsInGroups);
 

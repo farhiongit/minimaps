@@ -1,13 +1,18 @@
 // # `trace.h` permits to instrument the code (without changing it) to trace all calls to a function.
 #ifndef __TRACE__
-#  include <stdio.h>
-#  include <threads.h>
-#  define __TRACE__(text)               fprintf (stderr, "[%lX:%s] %s <%s:%d>\n", thrd_current(), __func__, (text), __FILE__, __LINE__)
+#include <stdio.h>
+#include <threads.h>
+#define __TRACE__(text) fprintf (stderr, "[%lX:%s] %s <%s:%d>\n", thrd_current (), __func__, (text), __FILE__, __LINE__)
 // ## DEFINITIONS
 // Use `#define function(...) TRACE_EXPRESSION(function (__VA_ARGS__))` to trace all calls to `function` to the standard error stream.
-#  define TRACE_EXPRESSION(expr)    (__TRACE__(#expr), (expr))
+#define TRACE_EXPRESSION(expr) (__TRACE__ (#expr), (expr))
 // Use `TRACE_FORMAT (fmt, args);` to log a message to the standard error stream.
-#  define TRACE_FORMAT(...)         do { fprintf (stderr, "[%lX:%s] ", thrd_current(), __func__) ; fprintf (stderr, __VA_ARGS__) ; fprintf (stderr, " <%s:%d>\n", __FILE__, __LINE__); } while (0)
+#define TRACE_FORMAT(...)                                     \
+  do {                                                        \
+    fprintf (stderr, "[%lX:%s] ", thrd_current (), __func__); \
+    fprintf (stderr, __VA_ARGS__);                            \
+    fprintf (stderr, " <%s:%d>\n", __FILE__, __LINE__);       \
+  } while (0)
 
 /*
 ## USAGE

@@ -2,8 +2,8 @@
 // (c) L. Farhi, 2024.
 // Language: C (C11 or higher).
 #ifndef __TIMERS_H__
-#  define __TIMERS_H__
-#  include <time.h>
+#define __TIMERS_H__
+#include <time.h>
 
 // timer_create and timer_settime are POSIX functions that create and set timers, based on signals or threads. They are nevertheless difficult to use.
 // This library let the user define timers more easily.

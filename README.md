@@ -33,16 +33,20 @@ Therefore, the library is based on an original paradigm: all operations on the e
 
 
 
-The interface has no more than 8 functions to do everything needed (create, read, update, insert, count, move, remove, destroy, etc.), all of them being MT-safe:
+The interface has no more than 9 functions to do everything needed (create, read, update, insert, count, move, remove, destroy, etc.), all of them being MT-safe:
 
-- `map_create`
-- `map_destroy`
-- `map_size` (MT-safe)
-- `map_insert_data` (MT-safe)
-- `map_find_key` (MT-safe)
-- `map_traverse` (MT-safe)
-- `map_traverse_backward` (MT-safe)
-- `map_traverse_keys` (MT-safe)
+- Map management:
+	  - `map_create`
+	  - `map_set_context` (MT-safe, optional)
+	  - `map_destroy` (MT-safe)
+
+- Map usage:
+	  - `map_insert_data` (MT-safe)
+	  - `map_find_key` (MT-safe)
+	  - `map_traverse` (MT-safe)
+	  - `map_traverse_backward` (MT-safe)
+	  - `map_traverse_keys` (MT-safe)
+	  - `map_size` (MT-safe)
 
 They are detailed below.
 
@@ -66,6 +70,12 @@ They are detailed below.
 | - |
 | `<stddef.h>` |
 
+```c
+extern const size_t MAP_VERSION_MAJOR;
+```
+```c
+extern const size_t MAP_VERSION_MINOR;
+```
 ### Map
 A map is an opaque Abstract Data Type (internally modelled as a sorted binary tree):
 
@@ -164,7 +174,7 @@ The type of a user-defined function that selects elements while traversing a map
 
 | Type definition |
 | - |
-| `int (*map_selector) (const void *data, void *sel_arg)` |
+| `int (*map_selector) (const void *data, void *sel_arg, const void *context)` |
 
 The data of the element of the map is passed as the first argument of the map_selector.
 
@@ -173,6 +183,9 @@ The data of the element of the map is passed as the first argument of the map_se
 
 
 The second argument `sel_arg` receives the pointer passed to `map_find_key`, `map_traverse` and `map_traverse_backward`.
+
+
+The third argument `context` receives the pointer passed to an optional previous call to `map_set_context`.
 
 
 Should return `1` if the `data` conforms to the user-defined conditions (and should be selected by `map_traverse` or `map_traverse_backward`), `0` otherwise.
@@ -186,7 +199,7 @@ picked by `map_traverse`, `map_traverse_backward` or `map_find_key`.
 
 | Type definition |
 | - |
-| `int (*map_operator) (void *data, void *op_arg, int *remove)` |
+| `int (*map_operator) (void *data, void *op_arg, int *remove, const void *context)` |
 
 The data of the element of the map is passed as the first argument of the `map_operator`.
 
@@ -198,6 +211,9 @@ The second argument `op_arg` receives the pointer passed to `map_traverse`, `map
 
 
 The third argument `remove` receives a non-null pointer for which `*remove` is set to `0`.
+
+
+The fourth argument `context` receives the pointer passed to an optional previous call to `map_set_context`.
 
 
 If (and only if) the operator sets `*remove` to a non-zero value,
@@ -258,6 +274,16 @@ For unsorted lists, sets or maps on type `T` of fixed size, a generic comparison
 
 
 
+### Define an optional global context to a map
+```c
+void *map_set_context (map *, void *context);
+```
+The `context` will be passed as the last argument to operators and selectors.
+
+
+Returns the context set by a previous call to `map_set_context`.
+
+
 ### Destroy a map
 ```c
 int map_destroy (map *);
@@ -269,19 +295,6 @@ If the map is not empty, the map is not destroyed.
 
 
 Returns `0` (and `errno` set to `EPERM`) if the map is not empty (and the map is NOT destroyed), `1` otherwise.
-
-
-### Retrieve the number of elements in a map
-```c
-size_t map_size (map *);
-```
-Returns the number of elements in a map.
-
-
-Note: if the map is used by several threads, `map_size` should better not be used since the size of the map can be modified any time by other threads.
-
-
-Complexity : 1. MT-safe.
 
 
 ### Add an element into a map
@@ -310,6 +323,19 @@ Complexity : log n (1 if `cmp_key` is `0`). MT-safe. Non-recursive.
 
 
 > About one million elements can be inserted and sorted per second.
+
+
+### Retrieve the number of elements in a map
+```c
+size_t map_size (map *);
+```
+Returns the number of elements in a map.
+
+
+Note: if the map is used by several threads, `map_size` should better not be used since the size of the map can be modified any time by other threads.
+
+
+Complexity : 1. MT-safe.
 
 
 ### Retrieve and remove elements from a map
@@ -352,10 +378,10 @@ elements can be removed from (when `*remove` is set to `1` in `op`) or inserted 
 
 #### Traverse the elements of a map
 ```c
-size_t map_traverse (map * map, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
+size_t map_traverse (map *map, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
 ```
 ```c
-size_t map_traverse_backward (map * map, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
+size_t map_traverse_backward (map *map, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
 ```
 Traverse (iterate on) the elements of the map.
 
@@ -396,10 +422,10 @@ elements can be removed from (when `*remove` is set to `1` in `op`) or inserted 
 
 | Type definition |
 | - |
-| `void (*map_operator_on_key) (const void *key, void *op_arg)` |
+| `void (*map_operator_on_key) (const void *key, void *op_arg, const void *)` |
 
 ```c
-size_t map_traverse_keys (map * map, map_operator_on_key op, void *op_arg);
+size_t map_traverse_keys (map *map, map_operator_on_key op, void *op_arg);
 ```
 Iterates on the distinct keys of a map.
 
@@ -413,6 +439,7 @@ For each distinct key of a map, the operator `op` (if not null) is called once w
 Returns `0` if `get_key` is `0` (with `errno` set to `EPERM`), the number of keys otherwise.
 
 
+### Predefined helpers
 ### Predefined helper comparator for use with `map_create`.
 
 
@@ -555,13 +582,13 @@ extern const map_operator MAP_MOVE_TO;
 | `<stdio.h>` |
 
 ```c
-struct map *map_display (map * map, FILE * stream, void (*displayer) (FILE * stream, const void *data));
+struct map *map_display (map *map, FILE *stream, void (*displayer) (FILE *stream, const void *data));
 ```
 `displayer` is called for each element of the BBT.
 
 
 ```c
-extern void (*const SHAPE) (FILE * stream, const void *data);
+extern void (*const SHAPE) (FILE *stream, const void *data);
 ```
 `SHAPE` is a convenient displayer that only shows the structure of the BBT.
 
@@ -582,7 +609,7 @@ extern void (*const SHAPE) (FILE * stream, const void *data);
 size_t map_height (map *);
 ```
 ```c
-size_t map_nb_balancing (map * m);
+size_t map_nb_balancing (map *m);
 ```
 
 -----

@@ -32,7 +32,7 @@ typedef struct {
 } Visit_args;
 
 [[maybe_unused]] static int
-visit_group (void *data, void *op_arg, int *remove) {
+visit_group (void *data, void *op_arg, int *remove, const void *) {
   static const Point adjacent[] = {
     { ONE, ZERO },
     { ONE, ONE }, // Diagonally
@@ -81,7 +81,7 @@ typedef struct {
 } Rectangle;
 
 [[maybe_unused]] static int
-bbox_r (void *data, void *op_arg, int *remove) {
+bbox_r (void *data, void *op_arg, int *remove, const void *) {
   (void)remove;
   Point p = *(Point *)data;
   Rectangle *bbox = op_arg;
@@ -97,14 +97,14 @@ bbox_r (void *data, void *op_arg, int *remove) {
 }
 
 [[maybe_unused]] static int
-equals_p (const void *data, void *sel_arg) {
+equals_p (const void *data, void *sel_arg, const void *) {
   const Point *rg = data;
   Point *p = sel_arg;
   return EQ (rg->x, p->x) && EQ (rg->y, p->y);
 }
 
 [[maybe_unused]] static int
-display_group (void *group, void *op_arg, int *remove) {
+display_group (void *group, void *op_arg, int *remove, const void *) {
   (void)remove;
   (void)op_arg;
   Point *rg;

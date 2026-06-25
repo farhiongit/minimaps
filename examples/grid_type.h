@@ -6,4 +6,3 @@
 #define ONE ((TYPE)1)
 #define ADD(a, b) ((a) + (b))
 #define MINUS(a) (-(a))
-

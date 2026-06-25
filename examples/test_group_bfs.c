@@ -1,9 +1,9 @@
 #define _DEFAULT_SOURCE // for random
-#include <stdlib.h>
-#include <time.h>       // for clock
 #include "grid_type.h"  // for group_bfs.c
 #include "group_bfs.c"
 #include "map.h"
+#include <stdlib.h>
+#include <time.h> // for clock
 //================================= Test ===================================
 int
 main (void) {
@@ -18,7 +18,7 @@ main (void) {
     if (!map_insert_data (grid, p))
       free (p);
   }
-  display_group (grid, 0, 0);
+  display_group (grid, 0, 0, 0);
 
   clock_t t0 = clock ();
   map *groups = map_create (0, 0, 0, 0);
