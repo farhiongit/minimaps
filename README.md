@@ -37,18 +37,21 @@ The interface has no more than 9 functions to do everything needed (create, read
 
 - Map management:
 
-	  - `map_create`
-	  - `map_set_context` (MT-safe, optional)
-	  - `map_destroy` (MT-safe)
+	 - `map_create`
+	 - `map_destroy` (MT-safe)
 
 - Map usage:
 
-	  - `map_insert_data` (MT-safe)
-	  - `map_find_key` (MT-safe)
-	  - `map_traverse` (MT-safe)
-	  - `map_traverse_backward` (MT-safe)
-	  - `map_traverse_keys` (MT-safe)
-	  - `map_size` (MT-safe)
+	 - `map_insert_data` (MT-safe)
+	 - `map_find_key` (MT-safe)
+	 - `map_traverse` (MT-safe)
+	 - `map_traverse_backward` (MT-safe)
+
+- Other features:
+
+	 - `map_set_context` (MT-safe, optional)
+	 - `map_traverse_keys` (MT-safe)
+	 - `map_size` (MT-safe)
 
 They are detailed below.
 
@@ -587,10 +590,10 @@ extern const map_operator MAP_COPY_REF_TO;
 > - A destination map identical to the source map would **deadly lock** the calling thread.
 
 
-> - Elements that do not respect the unicity constraint of the destination map wil not be copied and will remain in the source map.
+> - Elements that do not respect the unicity constraint of the destination map wil not be copied.
 
 
-> - The elements are NOT duplicated, and are therefore shared by both source and destination map. They should be free'd only *once*.
+> - The elements are *not* duplicated, and are therefore *shared* (by reference) by both source and destination map. They should be free'd only *once*.
 
 
 ## For debugging purpose
