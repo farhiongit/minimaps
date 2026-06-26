@@ -21,11 +21,13 @@ Therefore, the library is based on an original paradigm: all operations on the e
 The interface has no more than 9 functions to do everything needed (create, read, update, insert, count, move, remove, destroy, etc.), all of them being MT-safe:
 
 - Map management:
+
   - `map_create`
   - `map_set_context` (MT-safe, optional)
   - `map_destroy` (MT-safe)
 
 - Map usage:
+
   - `map_insert_data` (MT-safe)
   - `map_find_key` (MT-safe)
   - `map_traverse` (MT-safe)
@@ -45,6 +47,7 @@ They are detailed below.
 
 #include <stddef.h>
 
+// ## Interface version number
 extern const size_t MAP_VERSION_MAJOR;
 extern const size_t MAP_VERSION_MINOR;
 
@@ -311,16 +314,16 @@ extern const map_operator MAP_REMOVE_ALL;
 
 // #### Map operator to move elements from one map to another
 // This map operator moves each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward` to another **different** map passed in the argument `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward`.
+extern const map_operator MAP_MOVE_TO;
 // > - A destination map identical to the source map would **deadly lock** the calling thread.
 // > - Elements that do not respect the unicity constraint of the destination map wil not be moved and will remain in the source map.
-extern const map_operator MAP_MOVE_TO;
 
 // #### Map operator to copy elements from one map to another
 // This map operator copies each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward` to another **different** map passed in the argument `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward`.
+extern const map_operator MAP_COPY_REF_TO;
 // > - A destination map identical to the source map would **deadly lock** the calling thread.
 // > - Elements that do not respect the unicity constraint of the destination map wil not be copied and will remain in the source map.
 // > - The elements are NOT duplicated, and are therefore shared by both source and destination map. They should be free'd only *once*.
-extern const map_operator MAP_COPY_REF_TO;
 
 // ## For debugging purpose
 // > For fans only.
