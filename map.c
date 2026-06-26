@@ -10,7 +10,7 @@
 #include <threads.h>
 
 const size_t MAP_VERSION_MAJOR = 1;
-const size_t MAP_VERSION_MINOR = 0;
+const size_t MAP_VERSION_MINOR = 1;
 
 struct map_elem {
   struct map_elem *upper /* parent */, *lt /* less than */, *gt /* greater than */;                                                // Binary tree structure
@@ -764,16 +764,33 @@ const map_operator MAP_REMOVE_ALL = _MAP_REMOVE_ALL;
 static int
 _MAP_MOVE (void *data, void *context, int *remove, const void *map_context) {
   (void)map_context;
-  if (!context) {
+  if (!context) { // *context is supposed to be a pointer to a map here.
     fprintf (stderr, "%s: %s\n", "MAP_MOVE", "Context must not be a null pointer.");
     errno = EINVAL;
     return 0;
   }
   // if context is the same as the map containing data, i.e. (map *)context is already locked, ...
-  return (*remove = map_insert_data (context, data)); // *context is supposed to be a pointer to a map here.
+  *remove = map_insert_data (context, data);
+  return 1;
 }
 
 const map_operator MAP_MOVE_TO = _MAP_MOVE;
+
+static int
+_MAP_COPY_REF (void *data, void *context, int *remove, const void *map_context) {
+  (void)map_context;
+  (void)remove;
+  if (!context) { // *context is supposed to be a pointer to a map here.
+    fprintf (stderr, "%s: %s\n", "MAP_COPY_REF", "Context must not be a null pointer.");
+    errno = EINVAL;
+    return 0;
+  }
+  // if context is the same as the map containing data, i.e. (map *)context is already locked, ...
+  map_insert_data (context, data);
+  return 1;
+}
+
+const map_operator MAP_COPY_REF_TO = _MAP_COPY_REF;
 
 static int
 _MAP_EXISTS_ONE (void *data, void *context, int *remove, const void *map_context) {

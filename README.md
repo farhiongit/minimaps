@@ -565,11 +565,30 @@ This destructor is applied to each element selected by `map_find_key`, `map_trav
 This map operator moves each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward` to another **different** map passed in the argument `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward`.
 
 
-N.B.: A destination map identical to the source map would **deadly lock** the calling thread.
+> - A destination map identical to the source map would **deadly lock** the calling thread.
+
+
+> - Elements that do not respect the unicity constraint of the destination map wil not be moved and will remain in the source map.
 
 
 ```c
 extern const map_operator MAP_MOVE_TO;
+```
+#### Map operator to copy elements from one map to another
+This map operator copies each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward` to another **different** map passed in the argument `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward`.
+
+
+> - A destination map identical to the source map would **deadly lock** the calling thread.
+
+
+> - Elements that do not respect the unicity constraint of the destination map wil not be copied and will remain in the source map.
+
+
+> - The elements are NOT duplicated, and are therefore shared by both source and destination map. They should be free'd only *once*.
+
+
+```c
+extern const map_operator MAP_COPY_REF_TO;
 ```
 ## For debugging purpose
 > For fans only.
