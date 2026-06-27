@@ -122,7 +122,7 @@ typedef int (*map_selector) (const void *data, void *sel_arg, const void *contex
 // The data of the element of the map is passed as the first argument of the map_selector.
 // > `data` is a pointer to `T`, where `T` is the type managed by the map. Use `(T *)data` to access its content.
 // The second argument `sel_arg` receives the pointer passed to `map_find_key`, `map_traverse` and `map_traverse_backward`.
-// The third argument `context` receives the pointer passed to an optional previous call to `map_set_context`.
+// The third argument `context` receives the pointer passed to an optional previous call to `map_set_context`, or, by default, the map to which `data` belongs to.
 // Should return `1` if the `data` conforms to the user-defined conditions (and should be selected by `map_traverse` or `map_traverse_backward`), `0` otherwise.
 
 // ### Operator on elements of the map
@@ -133,7 +133,7 @@ typedef int (*map_operator) (void *data, void *op_arg, int *remove, const void *
 // > `data` is a pointer to `T`, where `T` is the type managed by the map. Use `(T *)data` to access its content.
 // The second argument `op_arg` receives the pointer passed to `map_traverse`, `map_traverse_backward` and `map_find_key`.
 // The third argument `remove` receives a non-null pointer for which `*remove` is set to `0`.
-// The fourth argument `context` receives the pointer passed to an optional previous call to `map_set_context`.
+// The fourth argument `context` receives the pointer passed to an optional previous call to `map_set_context`, or, by default, the map to which `data` belongs to.
 // If (and only if) the operator sets `*remove` to a non-zero value,
 //
 //   - the element will be forgotten by the map thread-safely ; the element will **not** by deallocated automatically (since it was not copied on insertion with `map_insert_data`) ;
@@ -159,14 +159,14 @@ map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, const vo
 
 /* 7 possible uses, depending on `unicity`, `cmp_key` and `get_key`:
 
-| Use            | `unicity` | `cmp_key` | `get_key` | Comment                                                                                                                          |
-| -              | -         | -         | -         | -                                                                                                                                |
-| Sorted map     | `1`       | Non-zero  | Non-zero  | Each key is unique in the map.                                                                                                   |
-| Dictionary     | `0`       | Non-zero  | Non-zero  | Keys can have multiple entries in the map for the same key (entries are ordered as they are inserted.)                           |
-| Sorted set     | `1`       | Non-zero  | `0`       | Elements are unique. `cmp_key` applies to inserted `data` (the `data` is the key).                                               |
-| Sorted list    | `0`       | Non-zero  | `0`       | Equal elements are ordered as they are inserted. `cmp_key` applies to inserted `data` (the `data` is the key).                   |
-| FIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse (m, MAP_REMOVE_ONE, &data, 0, 0)` to remove an element.          |
-| LIFO           | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse_backward (m, MAP_REMOVE_ONE, &data, 0, 0)` to remove an element. |
+| Use             | `unicity` | `cmp_key` | `get_key` | Comment                                                                                                                          |
+| -               | -         | -         | -         | -                                                                                                                                |
+| Sorted map      | `1`       | Non-zero  | Non-zero  | Each key is unique in the map.                                                                                                   |
+| Dictionary      | `0`       | Non-zero  | Non-zero  | Keys can have multiple entries in the map for the same key (entries are ordered as they are inserted.)                           |
+| Sorted set      | `1`       | Non-zero  | `0`       | Elements are unique. `cmp_key` applies to inserted `data` (the `data` is the key).                                               |
+| Sorted multiset | `0`       | Non-zero  | `0`       | Equal elements are ordered as they are inserted. `cmp_key` applies to inserted `data` (the `data` is the key).                   |
+| FIFO            | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse (m, MAP_REMOVE_ONE, &data, 0, 0)` to remove an element.          |
+| LIFO            | `0`       | `0`       | `0`       | Elements are appended after the last element. Use `map_traverse_backward (m, MAP_REMOVE_ONE, &data, 0, 0)` to remove an element. |
 
 For unsorted lists, sets or maps on type `T` of fixed size, a generic comparison function `MAP_GENERIC_CMP` is provided.
 */
@@ -175,6 +175,7 @@ For unsorted lists, sets or maps on type `T` of fixed size, a generic comparison
 void *map_set_context (map *, void *context);
 // The `context` will be passed as the last argument to operators and selectors.
 // Returns the context set by a previous call to `map_set_context`.
+// > By default, the contexte of a map is the map itself.
 
 // ### Destroy a map
 int map_destroy (map *);
@@ -237,11 +238,11 @@ size_t map_traverse_backward (map *map, map_operator op, void *op_arg, map_selec
 // >  - while traversing backward: at least a lower element is inserted (before the element being traversed).
 
 // ### Traverse the keys of a map
-typedef void (*map_operator_on_key) (const void *key, void *op_arg, const void *);
+typedef void (*map_operator_on_key) (const void *key, size_t nb_entries, void *op_arg, void *context);
 size_t map_traverse_keys (map *map, map_operator_on_key op, void *op_arg);
 // Iterates on the distinct keys of a map.
 // > `key` is a pointer to a key, as returned by a function of type `map_key_extractor`.
-// For each distinct key of a map, the operator `op` (if not null) is called once with the *key* (as returned by the declared `get_key` passed to `map_create`) passed as its first element, and `op_arg` as its second.
+// For each distinct key of a map, the operator `op` (if not null) is called once with the *key* (as returned by the declared `get_key` passed to `map_create`) passed as its first element, the number of entries of the key as its second, `op_arg` as its third, and the context of the map (set by a previous call to `map_set_context`, or, by default, the map to which `data` belongs to) as ist fourth.
 // Returns `0` if `get_key` is `0` (with `errno` set to `EPERM`), the number of keys otherwise.
 
 // ### Predefined helpers

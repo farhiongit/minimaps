@@ -181,7 +181,7 @@ bbox_r (void *data, void *op_arg, int *remove, const void *) {
 }
 
 [[maybe_unused]] static int
-show_point (void *data, void *op_arg, int *remove, const void *) {
+show_point (void *data, void *op_arg, int *remove, void *) {
   (void)op_arg;
   (void)remove;
   PointInGroup *p = data;
@@ -190,7 +190,7 @@ show_point (void *data, void *op_arg, int *remove, const void *) {
 }
 
 [[maybe_unused]] static size_t
-find_or_traverse (map *m, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg, const void *) {
+find_or_traverse (map *m, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg, void *) {
   if (key)
     return map_find_key (m, key, op, op_arg, sel, sel_arg);
   else
@@ -198,7 +198,7 @@ find_or_traverse (map *m, const void *key, map_operator op, void *op_arg, map_se
 }
 
 [[maybe_unused]] static void
-display_group (const void *key, void *op_arg, const void *context) {
+display_group (const void *key, size_t, void *op_arg, void *context) {
   map *owner = op_arg;
   PointInGroup *rg;
   if (!find_or_traverse (owner, key, MAP_GET_ONE, &rg, not_to_be_removed, 0, context) || !rg)
@@ -242,7 +242,7 @@ main (void) {
 
   // Display results.
   // map_traverse (RectanglesInGroups, show_point, 0, not_to_be_removed, 0);
-  display_group (0, pointsInGroups, 0);
+  display_group (0, 0, pointsInGroups, 0);
   printf ("%zu groups:\n", map_traverse_keys (pointsInGroups, 0, 0));
   map_traverse_keys (pointsInGroups, display_group, pointsInGroups);
 

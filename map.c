@@ -9,8 +9,8 @@
 #include <string.h>
 #include <threads.h>
 
-const size_t MAP_VERSION_MAJOR = 1;
-const size_t MAP_VERSION_MINOR = 1;
+const size_t MAP_VERSION_MAJOR = 2;
+const size_t MAP_VERSION_MINOR = 0;
 
 struct map_elem {
   struct map_elem *upper /* parent */, *lt /* less than */, *gt /* greater than */;                                                // Binary tree structure
@@ -58,6 +58,7 @@ map_create (map_key_extractor get_key, map_key_comparator cmp_key, const void *a
   l->cmp_key = cmp_key;
   l->uniqueness = unicity;
   l->cmp_arg = arg;
+  l->context = l; // By default, the contexte of a map is the map itself.
   // mtx_recursive : the SAME thread can lock (and unlock) the mutex several times. See https://en.wikipedia.org/wiki/Reentrant_mutex for more.
   // Therefore, map_find_key, map_traverse, map_traverse_backward and map_insert_data can call each other.
   if (mtx_init (&l->mutex, mtx_plain | mtx_recursive) != thrd_success) {
@@ -645,7 +646,7 @@ _map_traverse (map *m, map_operator op, void *op_arg, map_selector sel, void *se
     int go_on = 1;
     if (!sel || sel (e->data, sel_arg, m->context)) {
       if (op && ((go_on = op (e->data, op_arg, &remove, m->context))))
-        n = backward ? _map_previous (e) : _map_next (e); // Repeat again, after op has been called (an added equal element while traversing might be traversed later.)
+        n = backward ? _map_previous (e) : _map_next (e); // Updated, after op has been called (an added equal element while traversing might be traversed later.)
       nb_op++;
       if (remove)
         _map_remove (e);
@@ -668,9 +669,9 @@ map_traverse_backward (map *m, map_operator op, void *op_arg, map_selector sel, 
   return _map_traverse (m, op, op_arg, sel, sel_arg, 1);
 }
 
-size_t
-map_find_key (struct map *l, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg) {
-  if (!l || !key) {
+static size_t
+_map_find_key (struct map *l, struct map_elem *from, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg) {
+  if (!l || !key || (from && from->map != l)) {
     errno = EINVAL;
     return 0;
   }
@@ -682,7 +683,7 @@ map_find_key (struct map *l, const void *key, map_operator op, void *op_arg, map
   mtx_lock (&l->mutex);
   size_t nb_op = 0;
   int cmp_key;
-  struct map_elem *iter = l->root;
+  struct map_elem *iter = from; // l->root;
   while (iter)
     if ((cmp_key = l->cmp_key (key, iter->key_from_data, l->cmp_arg)) < 0)
       iter = iter->lt;
@@ -704,6 +705,11 @@ map_find_key (struct map *l, const void *key, map_operator op, void *op_arg, map
 }
 
 size_t
+map_find_key (struct map *l, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg) {
+  return _map_find_key (l, l->root, key, op, op_arg, sel, sel_arg);
+}
+
+size_t
 map_traverse_keys (map *m, map_operator_on_key op, void *op_arg) {
   if (!m) {
     errno = EINVAL;
@@ -718,8 +724,11 @@ map_traverse_keys (map *m, map_operator_on_key op, void *op_arg) {
   mtx_lock (&m->mutex);
   size_t nb_op = 0;
   for (struct map_elem *e = m->first; e; e = e->next_gt) {
-    if (op)
-      op (m->get_key (e->data), op_arg, m->context);
+    if (op) {
+      const void *key = m->get_key (e->data);
+      size_t nb = _map_find_key (m, e /* Straight to the point. */, key, 0, 0, 0, 0); // Counting the number of entries in a multimap for the key.
+      op (key, nb, op_arg, m->context);
+    }
     nb_op++;
   }
   mtx_unlock (&m->mutex);
