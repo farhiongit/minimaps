@@ -308,7 +308,7 @@ Returns `0` (and `errno` set to `EPERM`) if the map is not empty (and the map is
 
 ### Add an element into a map
 ```c
-int map_insert_data (map *, void *data);
+int __attribute__ ((warn_unused_result)) map_insert_data (map *, void *data);
 ```
 Adds a previously allocated data into map and returns `1` if the element was added, `0` otherwise.
 
@@ -323,6 +323,9 @@ Adds a previously allocated data into map and returns `1` if the element was add
 
 
 `0` will be returned if `unicity` was set to `1` at creation of the map and a data with the same key is already in the map (`data` is not inserted in the map).
+
+
+> An insertion might fail due to unicity constraint and should be checked.
 
 
 > If `map_insert_data` returns 0 and `data` was allocated dynamically, as `data` is not inserted in the map, it won't be tracked. If must then be free'd by the caller.
@@ -580,7 +583,7 @@ extern const map_operator MAP_MOVE_TO;
 > - A destination map identical to the source map would **deadly lock** the calling thread.
 
 
-> - Elements that do not respect the unicity constraint of the destination map wil not be moved and will remain in the source map.
+> - Elements that do not respect the unicity constraint of the destination map will not be moved and will remain in the source map.
 
 
 #### Map operator to copy elements from one map to another
@@ -593,7 +596,7 @@ extern const map_operator MAP_COPY_REF_TO;
 > - A destination map identical to the source map would **deadly lock** the calling thread.
 
 
-> - Elements that do not respect the unicity constraint of the destination map wil not be copied.
+> - Elements that do not respect the unicity constraint of the destination map will not be copied.
 
 
 > - The elements are *not* duplicated, and are therefore *shared* (by reference) by both source and destination map. They should be free'd only *once*.

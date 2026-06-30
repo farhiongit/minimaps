@@ -27,10 +27,7 @@ timer_cmp_key (const void *pa, const void *pb, const void *arg) {
   (void)arg;
   const struct timespec *a = pa;
   const struct timespec *b = pb;
-  return (a->tv_sec < b->tv_sec ? -1 : a->tv_sec > b->tv_sec ? 1
-                                   : a->tv_nsec < b->tv_nsec ? -1
-                                   : a->tv_nsec > b->tv_nsec ? 1
-                                                             : 0);
+  return (a->tv_sec < b->tv_sec ? -1 : (a->tv_sec > b->tv_sec ? 1 : (a->tv_nsec < b->tv_nsec ? -1 : (a->tv_nsec > b->tv_nsec ? 1 : 0))));
 }
 
 static struct // Ordered list of struct timer_elem stored in an ordered binary tree.
@@ -92,10 +89,11 @@ Timers_loop (void *) {
   mtx_lock (&Timers.mutex);
   while (!Timers.stop) {
     struct timer_elem *earliest = 0;
-    if (!map_traverse (Timers.map, MAP_REMOVE_ONE, &earliest, 0, 0) || !earliest)
+    if (!Timers.map || !map_traverse (Timers.map, MAP_REMOVE_ONE, &earliest, 0, 0) || !earliest)
       cnd_wait (&Timers.condition, &Timers.mutex);
     else {
-      map_insert_data (Timers.map, earliest);
+      if (!map_insert_data (Timers.map, earliest)) { /* nothing */
+      }
       map_display (Timers.map, stderr, displayer);
       if (cnd_timedwait (&Timers.condition, &Timers.mutex, &earliest->timeout) == thrd_timedout) {
         if (earliest->callback)
@@ -113,8 +111,10 @@ Timers_clear (void) {
   Timers.stop = 1;
   cnd_broadcast (&Timers.condition);
   thrd_join (Timers.thread, 0);
-  map_traverse (Timers.map, MAP_REMOVE_ALL, free, 0, 0);
-  map_destroy (Timers.map);
+  if (Timers.map) {
+    map_traverse (Timers.map, MAP_REMOVE_ALL, free, 0, 0);
+    map_destroy (Timers.map);
+  }
   cnd_destroy (&Timers.condition);
   mtx_destroy (&Timers.mutex);
 }

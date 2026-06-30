@@ -425,7 +425,7 @@ map_display (struct map *m, FILE *stream, void (*displayer) (FILE *stream, const
   return m;
 }
 
-int
+int __attribute__ ((warn_unused_result))
 map_insert_data (struct map *l, void *data) {
   if (!l) {
     errno = EINVAL;
@@ -778,7 +778,7 @@ _MAP_MOVE (void *data, void *context, int *remove, const void *map_context) {
     errno = EINVAL;
     return 0;
   }
-  // if context is the same as the map containing data, i.e. (map *)context is already locked, ...
+  // Elements that do not respect the unicity constraint of the destination map will not be moved and will remain in the source map.
   *remove = map_insert_data (context, data);
   return 1;
 }
@@ -794,8 +794,9 @@ _MAP_COPY_REF (void *data, void *context, int *remove, const void *map_context) 
     errno = EINVAL;
     return 0;
   }
-  // if context is the same as the map containing data, i.e. (map *)context is already locked, ...
-  map_insert_data (context, data);
+  if (!map_insert_data (context, data)) {
+    // Elements that do not respect the unicity constraint of the destination map will not be copied.
+  }
   return 1;
 }
 

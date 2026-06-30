@@ -1,5 +1,6 @@
 // (c) L. Farhi, 2024
 // Language: C (C11 or higher)
+#undef NDEBUG
 #include "map.h"
 #include "trace.h"
 #include <assert.h>
@@ -21,6 +22,7 @@
 #define map_find_key(map, ...) TRACE_EXPRESSION (map_find_key (map_check ((map)), __VA_ARGS__))
 #define map_size(map) TRACE_EXPRESSION (map_size (map_check ((map))))
 #endif
+#define TO_BE_OR_NOT_TO_BE(...) ((__VA_ARGS__) ? 1 : 1)
 
 static int
 cmpstringp (const void *p1, const void *p2, const void *arg) {
@@ -68,16 +70,16 @@ test1 (void) {
       break;
     default:
     }
-    map_insert_data (li, "b"); // The map stores pointers to static data of type char[].
-    map_insert_data (li, "a");
-    map_insert_data (li, "d");
-    map_insert_data (li, "c");
-    map_insert_data (li, "c");
-    map_insert_data (li, "a");
-    map_insert_data (li, "aa");
-    map_insert_data (li, "cc");
-    map_insert_data (li, "d");
-    map_insert_data (li, "ba");
+    assert (map_insert_data (li, "b")); // The map stores pointers to static data of type char[].
+    assert (map_insert_data (li, "a"));
+    assert (map_insert_data (li, "d"));
+    assert (map_insert_data (li, "c"));
+    assert (TO_BE_OR_NOT_TO_BE (map_insert_data (li, "c")));
+    assert (TO_BE_OR_NOT_TO_BE (map_insert_data (li, "a")));
+    assert (map_insert_data (li, "aa"));
+    assert (map_insert_data (li, "cc"));
+    assert (TO_BE_OR_NOT_TO_BE (map_insert_data (li, "d")));
+    assert (map_insert_data (li, "ba"));
     map_display (li, stderr, tostring);
 
     map_traverse (li, print_data, 0, 0, 0);
@@ -96,13 +98,13 @@ test1 (void) {
       fflush (stdout);
       map_traverse (li, print_data, 0, 0, 0);
       fprintf (stdout, "<-- %s\n", data);
-      map_insert_data (li, data); // Reinsert after use.
+      assert (map_insert_data (li, data)); // Reinsert after use.
       map_display (li, stderr, tostring);
       map_traverse (li, print_data, 0, 0, 0);
       fprintf (stdout, "\n");
     }
 
-    map_insert_data (li, "r");
+    assert (map_insert_data (li, "r"));
     map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
     map *lj = map_create (0, 0, 0, 0);
@@ -221,7 +223,7 @@ test2 (void) {
     int *pi = malloc (sizeof (*pi));
     *pi = rand () % 39 + 11;
     fprintf (stdout, "Insert %i...\n", *pi);
-    map_insert_data (li, pi);
+    assert (map_insert_data (li, pi));
     map_display (li, stdout, toint);
   }
   map_traverse (li, print_pi, 0, 0, 0);
@@ -305,18 +307,18 @@ static void
 test3 (void) {
   puts ("============================================================");
   map *french_dictionary = map_create (get_word, cmp_word, 0, 0); // Dictionary. A word can have several definitions and therefore appear several times in the map.
-  map_insert_data (french_dictionary, &(struct entry){
-                                          { "Orange", NOUN }, FEMININE, "Fruit" });
-  map_insert_data (french_dictionary, &(struct entry){
-                                          { "Abricot", NOUN }, MASCULINE, "Fruit" });
-  map_insert_data (french_dictionary, &(struct entry){
-                                          { "Orange", NOUN }, MASCULINE, "Colour" });
-  map_insert_data (french_dictionary, &(struct entry){
-                                          { "Orange", ADJECTIVE }, NONE, "Colour" });
-  map_insert_data (french_dictionary, &(struct entry){
-                                          { "Manger", VERB }, NONE, "Ingest" });
-  map_insert_data (french_dictionary, &(struct entry){
-                                          { "Manger", NOUN }, MASCULINE, "Food" });
+  assert (map_insert_data (french_dictionary, &(struct entry){
+                                                  { "Orange", NOUN }, FEMININE, "Fruit" }));
+  assert (map_insert_data (french_dictionary, &(struct entry){
+                                                  { "Abricot", NOUN }, MASCULINE, "Fruit" }));
+  assert (map_insert_data (french_dictionary, &(struct entry){
+                                                  { "Orange", NOUN }, MASCULINE, "Colour" }));
+  assert (map_insert_data (french_dictionary, &(struct entry){
+                                                  { "Orange", ADJECTIVE }, NONE, "Colour" }));
+  assert (map_insert_data (french_dictionary, &(struct entry){
+                                                  { "Manger", VERB }, NONE, "Ingest" }));
+  assert (map_insert_data (french_dictionary, &(struct entry){
+                                                  { "Manger", NOUN }, MASCULINE, "Food" }));
   fprintf (stdout, "%lu element(s).\n", map_size (french_dictionary));
   fprintf (stdout, "%lu element(s).\n", map_traverse (french_dictionary, 0, 0, 0, 0));
   fprintf (stdout, "%lu element(s) found.\n", map_traverse (french_dictionary, 0, 0, sel_noun_gender, &(enum gender){ FEMININE }));
@@ -370,12 +372,12 @@ test4 (void) {
   const size_t l = strlen (pattern);
   puts ("============================================================");
   map *dictionary = map_create (get_crossword_length, cmp_crossword, 0, 0);
-  map_insert_data (dictionary, &(struct crossword){ .word = "Lemon" });
-  map_insert_data (dictionary, &(struct crossword){ .word = "Apple" });
-  map_insert_data (dictionary, &(struct crossword){ .word = "Orange" });
-  map_insert_data (dictionary, &(struct crossword){ .word = "Apricot" });
-  map_insert_data (dictionary, &(struct crossword){ .word = "Peach" });
-  map_insert_data (dictionary, &(struct crossword){ .word = "Grapes" });
+  assert (map_insert_data (dictionary, &(struct crossword){ .word = "Lemon" }));
+  assert (map_insert_data (dictionary, &(struct crossword){ .word = "Apple" }));
+  assert (map_insert_data (dictionary, &(struct crossword){ .word = "Orange" }));
+  assert (map_insert_data (dictionary, &(struct crossword){ .word = "Apricot" }));
+  assert (map_insert_data (dictionary, &(struct crossword){ .word = "Peach" }));
+  assert (map_insert_data (dictionary, &(struct crossword){ .word = "Grapes" }));
   map_display (dictionary, stderr, 0);
   fprintf (stdout, "%lu element(s) checked.\n", map_find_key (dictionary, &l, match, pattern, 0, 0));
   fprintf (stdout, "%lu element(s).\n", map_size (dictionary));
@@ -406,7 +408,7 @@ test5 (void) {
   for (size_t i = 0; i < (size_t)NB; i++) {
     int *pi = malloc (sizeof (*pi));
     *pi = rand () % NB;
-    map_insert_data (ints, pi);
+    assert (map_insert_data (ints, pi));
   }
   map_display (ints, stderr, toint);
   map_traverse (ints, print_pi, 0, 0, 0);
@@ -454,7 +456,7 @@ fill_gaps (void *data, void *arg, int *, const void *) {
   for (int i = value + 1; i < previous_value; i++) {
     int *pi = malloc (sizeof (*pi));
     *pi = (int)i;
-    map_insert_data (ints, pi);
+    assert (map_insert_data (ints, pi));
     map_display (ints, stderr, toint);
   }
   *(int *)args[1] = value;
@@ -508,7 +510,7 @@ test6 (void) {
         for (size_t i = 1; i <= NB; i++) {
           int *pi = malloc (sizeof (*pi));
           *pi = (int)i;
-          map_insert_data (ints, pi);
+          assert (map_insert_data (ints, pi));
           map_display (ints, stderr, toint);
         }
       else if (k == 3) {
@@ -516,7 +518,7 @@ test6 (void) {
           for (size_t i = 1; i <= step; i += 2) {
             int *pi = malloc (sizeof (*pi));
             *pi = (int)((NB * i) / step) + 1; // >= 2
-            map_insert_data (ints, pi);
+            assert (map_insert_data (ints, pi));
             map_display (ints, stderr, toint);
           }
         int previous_int = (int)(NB + 1);
@@ -524,13 +526,13 @@ test6 (void) {
         map_traverse_backward (ints, fill_gaps, args, 0, 0);
         int *pi = malloc (sizeof (*pi));
         *pi = 1;
-        map_insert_data (ints, pi);
+        assert (map_insert_data (ints, pi));
         map_display (ints, stderr, toint);
       } else if (k == 4)
         for (size_t i = 1; i <= NB; i++) {
           int *pi = malloc (sizeof (*pi));
           *pi = i % 2 ? (int)(NB - i / 2) : (int)i / 2;
-          map_insert_data (ints, pi);
+          assert (map_insert_data (ints, pi));
           map_display (ints, stderr, toint);
         }
       log (ints, ts0);

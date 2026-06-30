@@ -184,12 +184,13 @@ int map_destroy (map *);
 // Returns `0` (and `errno` set to `EPERM`) if the map is not empty (and the map is NOT destroyed), `1` otherwise.
 
 // ### Add an element into a map
-int map_insert_data (map *, void *data);
+int __attribute__ ((warn_unused_result)) map_insert_data (map *, void *data);
 // Adds a previously allocated data into map and returns `1` if the element was added, `0` otherwise.
 // > `data` should be a pointer to `T`, where `T` is the type managed by the map.
 // > The map keeps track of `data` but `data` does not belong to (is not copied and stored in) the map after insertion. `*data` should persist until it is removed from the map (using `map_traverse` or `map_find_key`).
 // > If `data` is a pointer to memory allocated dynamically, a destructor should be passed as an argument to operator `MAP_REMOVE_ALL` in case it would be used.
 // `0` will be returned if `unicity` was set to `1` at creation of the map and a data with the same key is already in the map (`data` is not inserted in the map).
+// > An insertion might fail due to unicity constraint and should be checked.
 // > If `map_insert_data` returns 0 and `data` was allocated dynamically, as `data` is not inserted in the map, it won't be tracked. If must then be free'd by the caller.
 // Complexity : log n (1 if `cmp_key` is `0`). MT-safe. Non-recursive.
 // > About one million elements can be inserted and sorted per second.
@@ -320,13 +321,13 @@ extern const map_operator MAP_REMOVE_ALL;
 // This map operator moves each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward` to another **different** map passed in the argument `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward`.
 extern const map_operator MAP_MOVE_TO;
 // > - A destination map identical to the source map would **deadly lock** the calling thread.
-// > - Elements that do not respect the unicity constraint of the destination map wil not be moved and will remain in the source map.
+// > - Elements that do not respect the unicity constraint of the destination map will not be moved and will remain in the source map.
 
 // #### Map operator to copy elements from one map to another
 // This map operator copies each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward` to another **different** map passed in the argument `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward`.
 extern const map_operator MAP_COPY_REF_TO;
 // > - A destination map identical to the source map would **deadly lock** the calling thread.
-// > - Elements that do not respect the unicity constraint of the destination map wil not be copied.
+// > - Elements that do not respect the unicity constraint of the destination map will not be copied.
 // > - The elements are *not* duplicated, and are therefore *shared* (by reference) by both source and destination map. They should be free'd only *once*.
 
 // ## For debugging purpose

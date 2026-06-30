@@ -4,6 +4,8 @@
 // - Grid initially filled with a finite number of points.
 // Find groups of adjacent positions.
 // The algorithm uses a BFS.
+#undef NDEBUG
+#include <assert.h>
 #include <stdlib.h>
 //============================== Genericity ============================================
 #define TWO ADD (ONE, ONE)
@@ -51,7 +53,8 @@ visit_group (void *data, void *op_arg, int *remove, const void *) {
       // Find each point in the grid which is adjacent to the point in the current group (the grid is an ordered set.)
       // Remove this point from the grid.
       if (map_find_key (grid, &(Point){ ADD (current_point_in_group->x, delta.x), ADD (current_point_in_group->y, delta.y) }, MAP_REMOVE_ONE, &current_point_in_grid, 0, 0)) // (Complexity O(log(n)))
-        map_insert_data (current_group, current_point_in_grid);                                                                                                              // Append it at the end of the current group (the very same group that is being traversed.)
+        // Append it at the end of the current group (the very same group that is being traversed.)
+        assert (map_insert_data (current_group, current_point_in_grid));
     }
   return 1;
 }
@@ -62,8 +65,8 @@ grid_to_groups (map *grid, map *groups) {
   while (map_traverse (grid, MAP_REMOVE_ONE, &current_point_in_group, 0, 0)) // Remove a point from the grid.
   {
     map *current_group;
-    map_insert_data (groups, current_group = map_create (0, 0, 0, 0));                                              // Create a new group.
-    map_insert_data (current_group, current_point_in_group);                                                        // Add the point to the current group.
+    assert (map_insert_data (groups, current_group = map_create (0, 0, 0, 0)));                                     // Create a new group.
+    assert (map_insert_data (current_group, current_point_in_group));                                               // Add the point to the current group.
     map_traverse (current_group, visit_group, &(Visit_args){ .grid = grid, .current_group = current_group }, 0, 0); // Traverse the points of the current group, from beginning to end (see visit_group.) (Complexity O(n))
   }
   return map_size (groups);
