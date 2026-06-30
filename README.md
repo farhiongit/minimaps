@@ -238,7 +238,7 @@ as soon as the operator returns `0`, it stops `map_traverse`, `map_traverse_back
 ## Interface
 ### Create a map
 ```c
-map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, const void *cmp_arg, int unicity);
+__attribute__ ((warn_unused_result)) map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, const void *cmp_arg, int unicity);
 ```
 Returns `0` if the map could not be allocated (and `errno` set to `ENOMEM`).
 
@@ -308,7 +308,7 @@ Returns `0` (and `errno` set to `EPERM`) if the map is not empty (and the map is
 
 ### Add an element into a map
 ```c
-int __attribute__ ((warn_unused_result)) map_insert_data (map *, void *data);
+__attribute__ ((warn_unused_result)) int map_insert_data (map *, void *data);
 ```
 Adds a previously allocated data into map and returns `1` if the element was added, `0` otherwise.
 

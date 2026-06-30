@@ -145,7 +145,7 @@ typedef int (*map_operator) (void *data, void *op_arg, int *remove, const void *
 // ## Interface
 
 // ### Create a map
-map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, const void *cmp_arg, int unicity);
+__attribute__ ((warn_unused_result)) map *map_create (map_key_extractor get_key, map_key_comparator cmp_key, const void *cmp_arg, int unicity);
 // Returns `0` if the map could not be allocated (and `errno` set to `ENOMEM`).
 // Otherwise, returns a pointer to the created map.
 // If not `0`, the comparison function `cmp_key` must return an integer less than, equal to, or greater than zero
@@ -184,7 +184,7 @@ int map_destroy (map *);
 // Returns `0` (and `errno` set to `EPERM`) if the map is not empty (and the map is NOT destroyed), `1` otherwise.
 
 // ### Add an element into a map
-int __attribute__ ((warn_unused_result)) map_insert_data (map *, void *data);
+__attribute__ ((warn_unused_result)) int map_insert_data (map *, void *data);
 // Adds a previously allocated data into map and returns `1` if the element was added, `0` otherwise.
 // > `data` should be a pointer to `T`, where `T` is the type managed by the map.
 // > The map keeps track of `data` but `data` does not belong to (is not copied and stored in) the map after insertion. `*data` should persist until it is removed from the map (using `map_traverse` or `map_find_key`).

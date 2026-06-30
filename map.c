@@ -39,7 +39,7 @@ _MAP_KEY_IS_DATA (void *data) {
   return data;
 }
 
-struct map *
+__attribute__ ((warn_unused_result)) struct map *
 map_create (map_key_extractor get_key, map_key_comparator cmp_key, const void *arg, int unicity) {
   if (!get_key && cmp_key)
     get_key = _MAP_KEY_IS_DATA;
@@ -425,7 +425,7 @@ map_display (struct map *m, FILE *stream, void (*displayer) (FILE *stream, const
   return m;
 }
 
-int __attribute__ ((warn_unused_result))
+__attribute__ ((warn_unused_result)) int
 map_insert_data (struct map *l, void *data) {
   if (!l) {
     errno = EINVAL;
