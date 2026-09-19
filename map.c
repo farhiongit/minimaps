@@ -9,7 +9,7 @@
 #include <string.h>
 #include <threads.h>
 
-const size_t MAP_VERSION_MAJOR = 2;
+const size_t MAP_VERSION_MAJOR = 3;
 const size_t MAP_VERSION_MINOR = 0;
 
 struct map_elem {
@@ -709,6 +709,46 @@ map_find_key (struct map *l, const void *key, map_operator op, void *op_arg, map
   return _map_find_key (l, l->root, key, op, op_arg, sel, sel_arg);
 }
 
+int
+map_find_surrounding_keys (map *m, const void *key, const void **key_before, const void **key_after) {
+  if (key_after)
+    *key_after = 0;
+  if (key_before)
+    *key_before = 0;
+  if (!m || !key) {
+    errno = EINVAL;
+    return 0;
+  }
+  if (!m->cmp_key) {
+    fprintf (stderr, "%s: %s\n", __func__, "Undefined key comparator.");
+    errno = EPERM;
+    return 0;
+  }
+  int ret = 0;
+  mtx_lock (&m->mutex);
+  int cmp_key;
+  struct map_elem *iter = m->root;
+  while (iter)
+    if ((cmp_key = m->cmp_key (key, iter->key_from_data, m->cmp_arg)) < 0) {
+      if (key_after)
+        *key_after = iter->key_from_data;
+      iter = iter->lt;
+    } else if (cmp_key > 0) {
+      if (key_before)
+        *key_before = iter->key_from_data;
+      iter = iter->gt;
+    } else {
+      if (key_after)
+        *key_after = iter->next_gt ? iter->next_gt->key_from_data : 0;
+      if (key_before)
+        *key_before = iter->previous_lt ? iter->previous_lt->key_from_data : 0;
+      ret = 1;
+      break;
+    }
+  mtx_unlock (&m->mutex);
+  return ret;
+}
+
 size_t
 map_traverse_keys (map *m, map_operator_on_key op, void *op_arg) {
   if (!m) {
@@ -774,7 +814,7 @@ static int
 _MAP_MOVE (void *data, void *context, int *remove, const void *map_context) {
   (void)map_context;
   if (!context) { // *context is supposed to be a pointer to a map here.
-    fprintf (stderr, "%s: %s\n", "MAP_MOVE", "Context must not be a null pointer.");
+    fprintf (stderr, "%s: %s\n", "MAP_MOVE", "The operator argument must be set to the owner map.");
     errno = EINVAL;
     return 0;
   }
@@ -790,7 +830,7 @@ _MAP_COPY_REF (void *data, void *context, int *remove, const void *map_context) 
   (void)map_context;
   (void)remove;
   if (!context) { // *context is supposed to be a pointer to a map here.
-    fprintf (stderr, "%s: %s\n", "MAP_COPY_REF", "Context must not be a null pointer.");
+    fprintf (stderr, "%s: %s\n", "MAP_COPY_REF", "The operator argument must be set to the owner map.");
     errno = EINVAL;
     return 0;
   }
@@ -821,3 +861,28 @@ map_generic_cmp (const void *key_a, const void *key_b, const void *arg) {
 }
 
 const map_key_comparator MAP_GENERIC_CMP = map_generic_cmp;
+
+const int MAP_CMP_LT = 1;
+const int MAP_CMP_EQ = 2;
+const int MAP_CMP_NEQ = 5 /*MAP_LT|MAP_GT*/;
+const int MAP_CMP_GT = 4;
+
+static int
+_MAP_CMP_DATA_WITH (const void *data, void *sel_arg, const void *context) {
+  (void)context;
+  const struct MAP_CMP_SELECTOR_ARG *cmp_arg = sel_arg;
+  if (!cmp_arg || !cmp_arg->comparator || !cmp_arg->compare_with || !cmp_arg->compare_operators) {
+    fprintf (stderr, "%s: %s\n", "MAP_CMP_DATA_WITH", "A pointer to a filled struct MAP_CMP_SELECTOR_ARG should be passed as selector argument.");
+    errno = EINVAL;
+    return 0;
+  }
+  int cmp = cmp_arg->comparator (data, cmp_arg->compare_with, cmp_arg->compare_arg);
+  if ((cmp < 0 && (cmp_arg->compare_operators & MAP_CMP_LT))
+      || (cmp == 0 && (cmp_arg->compare_operators & MAP_CMP_EQ))
+      || (cmp > 0 && (cmp_arg->compare_operators & MAP_CMP_GT)))
+    return 1;
+  else
+    return 0;
+}
+
+const map_selector MAP_CMP_DATA_WITH = _MAP_CMP_DATA_WITH;

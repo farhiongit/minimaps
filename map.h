@@ -18,7 +18,7 @@ Iterating and operating are two bound actions. This departs from traditional app
 
 Therefore, the library is based on an original paradigm: all operations on the elements of the map are applied through searching or traversing the map.
 
-The interface has no more than 9 functions to do everything needed (create, read, update, insert, count, move, remove, destroy, etc.), all of them being MT-safe:
+The interface has no more than 10 functions to do everything needed (create, read, update, insert, count, move, remove, destroy, etc.), all of them being MT-safe:
 
 - Map management:
 
@@ -35,8 +35,9 @@ The interface has no more than 9 functions to do everything needed (create, read
 - Other features:
 
  - `map_set_context` (MT-safe, optional)
- - `map_traverse_keys` (MT-safe)
  - `map_size` (MT-safe)
+ - `map_traverse_keys` (MT-safe)
+ - `map_find_surrounding_keys` (MT-safe)
 
 They are detailed below.
 
@@ -204,7 +205,7 @@ size_t map_size (map *);
 // ### Retrieve and remove elements from a map
 
 // #### Find an element from its key
-size_t map_find_key (struct map *map, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
+size_t map_find_key (map *map, const void *key, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
 // > `key` is a pointer to a key, as returned by a function of type `map_key_extractor` (if set) or a pointer to a `T` (if `map_key_extractor` is not set), where `T` is the type managed by the map.
 // If `get_key` (as defined at map creation) is not null, applies `op` on the data of the elements in the map that matches the `key` (for which `cmp_key (get_key (data), key)` returns `0`), as long as `op` returns non-zero.
 // If `get_key` is null, applies the operator `op` on the data of the elements in the map that matches the data (for which `cmp_key (data, key)` returns `0`), as long as `op` returns non-zero.
@@ -218,6 +219,12 @@ size_t map_find_key (struct map *map, const void *key, map_operator op, void *op
 // If `op` is null, `map_find_key` simply counts and returns the number of matching elements with the `key`.
 // > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `op_arg` argument). Therefore,
 // elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while finding elements.
+
+// #### Get surrounding keys
+int map_find_surrounding_keys (map *map, const void *key, const void **key_before, const void **key_after);
+// > `key` is a pointer to a key or a pointer to a `T` (if `map_key_extractor` is not set), where `T` is the type managed by the map.
+// Complexity : log n. MT-safe. Non-recursive.
+// > `cmp_key` should have been previously set by `map_create` (otherwise, `0` is returned and `errno` is set to `EPERM`.)
 
 // #### Traverse the elements of a map
 size_t map_traverse (map *map, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
@@ -263,10 +270,30 @@ extern const map_key_comparator MAP_GENERIC_CMP;
 //    static const size_t size = sizeof (SpaceTimeRegion);
 //    map *m = map_create (0, MAP_GENERIC_CMP, &size, 1);
 
+// ### Predefined useful and usual helper selectors for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
+
+// `map_selector` functions passed to `map_find_key`, `map_traverse` and `map_traverse_backward` are user-defined according to one's need.
+// Nevertheless, useful selectors are provided below for convenience.
+
+// #### Map selector to compare elements.
+extern const int MAP_CMP_LT, MAP_CMP_EQ, MAP_CMP_NEQ, MAP_CMP_GT;
+struct MAP_CMP_SELECTOR_ARG {
+  const int compare_operators;                                                          // The comparison operators to use.
+  const void *compare_with;                                                             // The data to compare with, passed to the comparison function as second argument.
+  const void *compare_arg;                                                              // An optional argument to pass to the comparison function as third argument.
+  int (*comparator) (const void *a, const void *compare_with, const void *compare_arg); // The comparison function.
+};
+extern const map_selector MAP_CMP_DATA_WITH;
+// When the helper selector `MAP_CMP_DATA_WITH` is used as `map_selector`, elements comparing with the data `compare_with` with respect to `comparator` and `compare_operators` are selected.
+// `compare_operators` should be an 'or' of `MAP_CMP_LT` (lower than), `MAP_CMP_EQ` (equal to), `MAP_CMP_NEQ` (not equal to) and `MAP_CMP_GT` (greater than) (ex: `MAP_CMP_LT | MAP_CMP_EQ`).
+// The comparison function `comparator` should return an integer less than, equal to, or greater than zero if the first argument (a data in the map)
+// is considered to be respectively less than, equal to, or greater than the second argument (`compare_with`).
+// > A pointer to a filled struct MAP_CMP_SELECTOR_ARG must be passed as selector argument. Otherwise, behaviour is undefined.
+
 // ### Predefined useful and usual helper operators for use with `map_find_key`, `map_traverse` and `map_traverse_backward`.
 
-// `map_operator` functions passed to `map_find_key`, `map_traverse` and `map_traverse_backward` can be user-defined according to one's need.
-// But useful operators are provided below.
+// `map_operator` functions passed to `map_find_key`, `map_traverse` and `map_traverse_backward` are user-defined according to one's need.
+// Nevertheless, useful operators are provided below for convenience.
 
 // #### Map operator to count elements.
 extern const map_operator MAP_COUNT;
@@ -320,12 +347,14 @@ extern const map_operator MAP_REMOVE_ALL;
 // #### Map operator to move elements from one map to another
 // This map operator moves each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward` to another **different** map passed in the argument `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward`.
 extern const map_operator MAP_MOVE_TO;
+// > - The parameter `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward` must be set to the owner map, otherwise, behaviour is undefined.
 // > - A destination map identical to the source map would **deadly lock** the calling thread.
 // > - Elements that do not respect the unicity constraint of the destination map will not be moved and will remain in the source map.
 
 // #### Map operator to copy elements from one map to another
 // This map operator copies each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward` to another **different** map passed in the argument `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward`.
 extern const map_operator MAP_COPY_REF_TO;
+// > - The parameter `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward` must be set to the owner map, otherwise, behaviour is undefined.
 // > - A destination map identical to the source map would **deadly lock** the calling thread.
 // > - Elements that do not respect the unicity constraint of the destination map will not be copied.
 // > - The elements are *not* duplicated, and are therefore *shared* (by reference) by both source and destination map. They should be free'd only *once*.

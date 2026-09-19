@@ -20,6 +20,7 @@
 #define map_traverse(map, ...) TRACE_EXPRESSION (map_traverse (map_check ((map)), __VA_ARGS__))
 #define map_traverse_backward(map, ...) TRACE_EXPRESSION (map_traverse_backward (map_check ((map)), __VA_ARGS__))
 #define map_find_key(map, ...) TRACE_EXPRESSION (map_find_key (map_check ((map)), __VA_ARGS__))
+#define map_find_surrounding_keys(map, ...) TRACE_EXPRESSION (map_find_surrounding_keys (map_check ((map)), __VA_ARGS__))
 #define map_size(map) TRACE_EXPRESSION (map_size (map_check ((map))))
 #endif
 #define TO_BE_OR_NOT_TO_BE(...) ((__VA_ARGS__) ? 1 : 1)
@@ -57,7 +58,7 @@ static void
 test1 (void) {
   for (int i = 1; i <= 3; i++) {
     map *li;
-    puts ("============================================================");
+    printf ("=============================" "%s" "===============================\n", __func__);
     switch (i) {
     case 1:
       li = map_create (0, cmpstringp, 0, 1); // Sorted set
@@ -84,6 +85,17 @@ test1 (void) {
 
     map_traverse (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
+
+    const void *before , *after;
+    int ret = map_find_surrounding_keys (li, "b", &before, &after);
+    fprintf (stdout, "%i %s - %s\n", ret, (const char *)before, (const char *)after);
+    ret = map_find_surrounding_keys (li, "c", &before, &after);
+    fprintf (stdout, "%i %s - %s\n", ret, (const char *)before, (const char *)after);
+    ret = map_find_surrounding_keys (li, "ca", &before, &after);
+    fprintf (stdout, "%i %s - %s\n", ret, (const char *)before, (const char *)after);
+    ret = map_find_surrounding_keys (li, "z", &before, &after);
+    fprintf (stdout, "%i %s - %s\n", ret, (const char *)before, (const char *)after);
+
     map_traverse_backward (li, print_data, 0, 0, 0);
     fprintf (stdout, "\n");
     char c = 'c';
@@ -155,8 +167,7 @@ test1 (void) {
 static int
 cmpip (const void *p1, const void *p2, const void *arg) {
   (void)arg;
-  return *(const int *)p1 < *(const int *)p2 ? -1 : *(const int *)p1 > *(const int *)p2 ? 1
-                                                                                        : 0;
+  return *(const int *)p1 < *(const int *)p2 ? -1 : (*(const int *)p1 > *(const int *)p2 ? 1 : 0);
 }
 
 static int
@@ -217,7 +228,7 @@ print_pi (void *data, void *res, int *remove, const void *) {
 
 static void
 test2 (void) {
-  puts ("============================================================");
+  printf ("=============================" "%s" "===============================\n", __func__);
   map *li = map_create (0, cmpip, 0, 0); // Ordered list
   for (size_t i = 0; i < 10; i++) {
     int *pi = malloc (sizeof (*pi));
@@ -305,7 +316,7 @@ sel_noun_gender (const void *data, void *context, const void *) {
 
 static void
 test3 (void) {
-  puts ("============================================================");
+  printf ("=============================" "%s" "===============================\n", __func__);
   map *french_dictionary = map_create (get_word, cmp_word, 0, 0); // Dictionary. A word can have several definitions and therefore appear several times in the map.
   assert (map_insert_data (french_dictionary, &(struct entry){
                                                   { "Orange", NOUN }, FEMININE, "Fruit" }));
@@ -370,7 +381,7 @@ static void
 test4 (void) {
   char *pattern = "*e***";
   const size_t l = strlen (pattern);
-  puts ("============================================================");
+  printf ("=============================" "%s" "===============================\n", __func__);
   map *dictionary = map_create (get_crossword_length, cmp_crossword, 0, 0);
   assert (map_insert_data (dictionary, &(struct crossword){ .word = "Lemon" }));
   assert (map_insert_data (dictionary, &(struct crossword){ .word = "Apple" }));
@@ -403,7 +414,7 @@ sum_squares (void *data, void *op_arg, int *, const void *) {
 static void
 test5 (void) {
   static const int NB = 100;
-  puts ("============================================================");
+  printf ("=============================" "%s" "===============================\n", __func__);
   map *ints = map_create (0, cmpip, 0, 0);
   for (size_t i = 0; i < (size_t)NB; i++) {
     int *pi = malloc (sizeof (*pi));
@@ -422,6 +433,8 @@ test5 (void) {
   fprintf (stdout, "\n");
   map_traverse (ints, print_pi, 0, select_random, 0);
   fprintf (stdout, "\n");
+  map_traverse (ints, print_pi, 0, MAP_CMP_DATA_WITH, &(struct MAP_CMP_SELECTOR_ARG) {MAP_CMP_LT | MAP_CMP_EQ, &(int){ 50 }, 0, cmpip});
+  fprintf (stdout, "\n");
 
   map_traverse (ints, MAP_REMOVE_ALL, free, select_random, 0);
   map_display (ints, stderr, toint);
@@ -439,14 +452,6 @@ test5 (void) {
 #undef map_traverse_backward
 #undef map_size
 #undef map_height
-// #define map_display(map, ...) do { if (map_size (map) <= 64) map_display (map, __VA_ARGS__);} while (0)
-#ifndef map_display
-#define map_display(map, ...) \
-  do {                        \
-    if (map_size (map) <= 64) \
-      map_check (map);        \
-  } while (0)
-#endif
 static int
 fill_gaps (void *data, void *arg, int *, const void *) {
   int value = *(int *)data;
@@ -457,7 +462,6 @@ fill_gaps (void *data, void *arg, int *, const void *) {
     int *pi = malloc (sizeof (*pi));
     *pi = (int)i;
     assert (map_insert_data (ints, pi));
-    map_display (ints, stderr, toint);
   }
   *(int *)args[1] = value;
   return 1;
@@ -488,30 +492,26 @@ test6 (void) {
   };
   for (size_t j = 0; j < sizeof (NBs) / sizeof (*NBs); j++)
     for (int k = 1; k <= 4; k++) {
-      puts ("============================================================");
+      printf ("=============================" "%s" "===============================\n", __func__);
       size_t NB = NBs[j];
       struct timespec ts0;
       timespec_get (&ts0, TIME_UTC);
       fprintf (stdout, "Create map...\n");
       map *ints = map_create (0, cmpip, 0, 1); // Unicity
       log (ints, ts0);
-      fprintf (stdout, "Insert %'zu %s elements...\n", NB, k == 1 ? "randomised" : k == 2 ? "sorted"
-                                                                               : k == 3   ? "even"
-                                                                                          : "folded");
+      fprintf (stdout, "Insert %'zu %s elements...\n", NB, k == 1 ? "randomised" : (k == 2 ? "sorted" : (k == 3 ? "even" : "folded")));
       if (k == 1)
         for (size_t i = 0; i < NB; i++) {
           int *pi = malloc (sizeof (*pi));
           do
             *pi = rand () % (10 * (int)NB) + 1;
           while (!map_insert_data (ints, pi));
-          map_display (ints, stderr, toint);
         }
       else if (k == 2)
         for (size_t i = 1; i <= NB; i++) {
           int *pi = malloc (sizeof (*pi));
           *pi = (int)i;
           assert (map_insert_data (ints, pi));
-          map_display (ints, stderr, toint);
         }
       else if (k == 3) {
         for (size_t step = 2; step <= NB; step *= 2)
@@ -519,7 +519,6 @@ test6 (void) {
             int *pi = malloc (sizeof (*pi));
             *pi = (int)((NB * i) / step) + 1; // >= 2
             assert (map_insert_data (ints, pi));
-            map_display (ints, stderr, toint);
           }
         int previous_int = (int)(NB + 1);
         void *args[2] = { ints, &previous_int };
@@ -527,13 +526,11 @@ test6 (void) {
         int *pi = malloc (sizeof (*pi));
         *pi = 1;
         assert (map_insert_data (ints, pi));
-        map_display (ints, stderr, toint);
       } else if (k == 4)
         for (size_t i = 1; i <= NB; i++) {
           int *pi = malloc (sizeof (*pi));
           *pi = i % 2 ? (int)(NB - i / 2) : (int)i / 2;
           assert (map_insert_data (ints, pi));
-          map_display (ints, stderr, toint);
         }
       log (ints, ts0);
       fprintf (stdout, "Traverse map...\n");
@@ -545,7 +542,6 @@ test6 (void) {
         int *pi = 0;
         map_traverse (ints, MAP_REMOVE_ONE, &pi, 0, 0);
         free (pi);
-        map_display (ints, stderr, toint);
       }
       log (ints, ts0);
       fprintf (stdout, "Remove all remaining %'zu elements...\n", map_size (ints));
