@@ -45,7 +45,6 @@ They are detailed below.
 - All calls are non-recursive.
 */
 
-// ## Type definitions
 #ifndef __MAP_H__
 #define __MAP_H__
 
@@ -55,6 +54,7 @@ They are detailed below.
 extern const size_t MAP_VERSION_MAJOR;
 extern const size_t MAP_VERSION_MINOR;
 
+// ## Type definitions
 // ### Map
 // A map is an opaque Abstract Data Type (internally modelled as a sorted binary tree):
 typedef struct map map;
@@ -65,6 +65,7 @@ typedef struct map map;
 > The data handled by the map is never copied and does not belong to the map. The map stores and tracks references (pointers) to objects and not objects themselves.
 */
 
+// ## Prototypes
 // ### Key
 // The key of the map is extracted from the data managed by it (generally but not necessarily a subset of it). A user-defined function of type `map_key_extractor` (passed to `map_create`) can be used to extract this subset.
 // `map_key_extractor` is the type of the user-defined function that should return a pointer to the the part of `data` that contains the key of the map.
@@ -220,12 +221,6 @@ size_t map_find_key (map *map, const void *key, map_operator op, void *op_arg, m
 // > `map_find_key`, `map_traverse`, `map_traverse_backward` and `map_insert_data` can call each other *in the same thread* (the first argument `map` can be passed again through the `op_arg` argument). Therefore,
 // elements can be removed from (when `*remove` is set to `1` in `op`) or inserted into (when `map_insert_data` is called in `op`) the map *by the same thread* while finding elements.
 
-// #### Get surrounding keys
-int map_find_surrounding_keys (map *map, const void *key, const void **key_before, const void **key_after);
-// > `key` is a pointer to a key or a pointer to a `T` (if `map_key_extractor` is not set), where `T` is the type managed by the map.
-// Complexity : log n. MT-safe. Non-recursive.
-// > `cmp_key` should have been previously set by `map_create` (otherwise, `0` is returned and `errno` is set to `EPERM`.)
-
 // #### Traverse the elements of a map
 size_t map_traverse (map *map, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
 size_t map_traverse_backward (map *map, map_operator op, void *op_arg, map_selector sel, void *sel_arg);
@@ -245,7 +240,8 @@ size_t map_traverse_backward (map *map, map_operator op, void *op_arg, map_selec
 // >  - while traversing forward: at least an equal or greater element is inserted (after the element being traversed) ;
 // >  - while traversing backward: at least a lower element is inserted (before the element being traversed).
 
-// ### Traverse the keys of a map
+// ### Retrieve keys from a map
+// #### Traverse the keys of a map
 typedef void (*map_operator_on_key) (const void *key, size_t nb_entries, void *op_arg, void *context);
 size_t map_traverse_keys (map *map, map_operator_on_key op, void *op_arg);
 // Iterates on the distinct keys of a map.
@@ -253,7 +249,20 @@ size_t map_traverse_keys (map *map, map_operator_on_key op, void *op_arg);
 // For each distinct key of a map, the operator `op` (if not null) is called once with the *key* (as returned by the declared `get_key` passed to `map_create`) passed as its first element, the number of entries of the key as its second, `op_arg` as its third, and the context of the map (set by a previous call to `map_set_context`, or, by default, the map to which `data` belongs to) as ist fourth.
 // Returns `0` if `get_key` is `0` (with `errno` set to `EPERM`), the number of keys otherwise.
 
-// ### Predefined helpers
+// #### Get surrounding keys
+int map_find_surrounding_keys (map *map, const void *key, const void **key_before, const void **key_after);
+// > `key` is a pointer to a key or a pointer to a `T` (if `map_key_extractor` is not set), where `T` is the type managed by the map.
+// > `cmp_key` should have been previously set by `map_create` (otherwise, `0` is returned and `errno` is set to `EPERM`.)
+// Given a `key` as second parameter which need not be part of the map `map`, set respectively `*key_before` and `*key_after` with the greatest key lower then `key` and the lowest key greater then `key` that are part of `map` (if they exist, with `0` otherwise).
+// Return `1` if `key` is part of the map `map`, `0` otherwise.
+// Example:
+// ```c
+//    const void *before , *after;
+//    int exists = map_find_surrounding_keys (m, "b", &before, &after);
+//```
+// Complexity : log n. MT-safe. Non-recursive.
+
+// ## Predefined helpers
 
 // ### Predefined helper comparator for use with `map_create`.
 
@@ -323,7 +332,7 @@ extern const map_operator MAP_REMOVE_ONE;
 // it sets the pointer `op_arg` to the data of this element.
 // > `op_arg` should be `0` or the address of an allocated pointer to type T set to 0 (`&a` where `T* a = 0`), where `op_arg` is the argument passed to `map_find_key`, `map_traverse` or `map_traverse_backward`.
 // > The content of `a` **should** ultimately be free'd if it was allocated dynamically before insertion into the map with `map_insert_data` (otherwise data would be lost in memory leaks).
-/* Example
+/* Example:
 
 If `m` is a map of elements of type T and `sel` a map_selector, the following piece of code will remove and retrieve the data of the first element selected by `sel`:
 
@@ -343,7 +352,11 @@ extern const map_operator MAP_REMOVE_ALL;
 // The parameter `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward` should be `0` or a pointer to a destructor function with signature `void (*)(void * ptr)` (such as `free`).
 // This destructor is applied to each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward`.
 // > The parameter `op_arg`should not be `0` if elements were allocated dynamically before insertion into the map with `map_insert_data` (otherwise data would be lost in memory leaks).
+/* May be used before destroying a map:
 
+    map_traverse (m, MAP_REMOVE_ALL, 0, 0, 0);
+    map_destroy (m);
+*/
 // #### Map operator to move elements from one map to another
 // This map operator moves each element selected by `map_find_key`, `map_traverse` or `map_traverse_backward` to another **different** map passed in the argument `op_arg` of `map_find_key`, `map_traverse` or `map_traverse_backward`.
 extern const map_operator MAP_MOVE_TO;
