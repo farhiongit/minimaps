@@ -51,8 +51,8 @@ They are detailed below.
 #include <stddef.h>
 
 // ## Interface version number
-extern const size_t MAP_VERSION_MAJOR;
-extern const size_t MAP_VERSION_MINOR;
+extern const size_t MAP_VERSION_MAJOR; // = 3
+extern const size_t MAP_VERSION_MINOR; // = 0
 
 // ## Type definitions
 // ### Map
@@ -253,6 +253,7 @@ size_t map_traverse_keys (map *map, map_operator_on_key op, void *op_arg);
 int map_find_surrounding_keys (map *map, const void *key, const void **key_before, const void **key_after);
 // > `key` is a pointer to a key or a pointer to a `T` (if `map_key_extractor` is not set), where `T` is the type managed by the map.
 // > `cmp_key` should have been previously set by `map_create` (otherwise, `0` is returned and `errno` is set to `EPERM`.)
+//
 // Given a `key` as second parameter which need not be part of the map `map`, set respectively `*key_before` and `*key_after` with the greatest key lower then `key` and the lowest key greater then `key` that are part of `map` (if they exist, with `0` otherwise).
 // Return `1` if `key` is part of the map `map`, `0` otherwise.
 // Example:

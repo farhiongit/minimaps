@@ -76,11 +76,13 @@ They are detailed below.
 | `<stddef.h>` |
 
 ## Interface version number
+= 3
 ```c
-extern const size_t MAP_VERSION_MAJOR;
+extern const size_t MAP_VERSION_MAJOR; 
 ```
+= 0
 ```c
-extern const size_t MAP_VERSION_MINOR;
+extern const size_t MAP_VERSION_MINOR; 
 ```
 ## Type definitions
 ### Map
@@ -462,6 +464,7 @@ int map_find_surrounding_keys (map *map, const void *key, const void **key_befor
 
 
 > `cmp_key` should have been previously set by `map_create` (otherwise, `0` is returned and `errno` is set to `EPERM`.)
+
 Given a `key` as second parameter which need not be part of the map `map`, set respectively `*key_before` and `*key_after` with the greatest key lower then `key` and the lowest key greater then `key` that are part of `map` (if they exist, with `0` otherwise).
 
 
